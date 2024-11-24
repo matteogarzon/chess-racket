@@ -16,8 +16,6 @@
 ; straight-moves (posn 1 0) (posn 0 1)
 ; knight-moves (posn 2 1) (posn 2 -1)
 
-
-
 ;;;; HELPER FUNCTIONS
 
 ;; TO MOVE PAWNS
