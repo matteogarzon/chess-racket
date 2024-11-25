@@ -36,14 +36,15 @@
 ;; LISTENER CONSTANT ;;
 
 (define LISTENER (tcp-listen 0)) ; a channel where the server waits for incoming connection requests, `tcp-listen`: makes the server wait for connection requests on a port
-                                 ; in this case the port number is 0, because it allows `tcp-listen` to choose any available port
+                                 ; in this case the port number is 0, because in this way it allows `tcp-listen` to choose any available port
 
 ;;;; AUXILIARY FUNCTIONS ;;;; 
 
-;; FUNCTION FOR CONNECTION MANAGEMENT ;;
+;; CONNECTION MANAGEMENT ;;
 
 ;; connection-management: Maybe<Channel> Maybe<Channel> Color -> Client
 ; manages the player's connection by informing that they connected and outputting the client that connected
+; header: (define (connection-management input-channel output-channel color) (make-client #false #false "White"))
 
 ;; Template
 
@@ -58,5 +59,29 @@
     (make-client input-channel output-channel color)))
 
 ;; Examples
+
 (check-expect (connection-management 1 2 "White") (make-client 1 2 "White"))
 (check-expect (connection-management 58 99 "Black") (make-client 58 99 "Black"))
+
+;; PLAYERS' CONNECTION ;;
+
+;; player-connection: Maybe<Channel> Color -> Client
+; allows players' connection
+; header: (define (player-connection LISTENER color) (make-client #false #false "White"))
+
+;; Template
+
+; (define (player-connection LISTENER color)
+;  (... input-channel ... output-channel ... LISTENER ...)
+;  (... input-channel ... output-channel ... color ...))
+
+(define (player-connection LISTENER color)
+  (define-values (input-channel output-channel) (tcp-accept LISTENER)) ; `define-values`: allocates the values of the multiple outputs of a function (`tcp-accept`) to
+                                                                       ; different variables (`input-channel`, `output-channel`), one for each value. In this case the outputs are the input and output ports
+                                                                       ; `tcp-accept`: accepts client's connection request
+  (connection-management input-channel output-channel color))
+
+;; Examples
+
+(check-expect (player-connection LISTENER "White") (make-client 12 34 "White")) ; since any available port can be accessed, I chose two random numbers
+(check-expect (player-connection LISTENER "Black") (make-client 56 78 "Black"))
