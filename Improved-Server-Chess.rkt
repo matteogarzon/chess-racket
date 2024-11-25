@@ -49,14 +49,12 @@
 ;; Template
 
 ; (define (connection-management input-channel output-channel color)
-;  (begin
 ;    (... color ...)
 ;    (... input-channel ... output-channel ... color ...)))
 
 (define (connection-management input-channel output-channel color)
-  (begin ; for performing more than one operation, otherwise it would raise an error
     (displayln (string-append color " is connected")) ; `displayln`: "White is connected" or "Black is connected"
-    (make-client input-channel output-channel color)))
+    (make-client input-channel output-channel color))
 
 ;; Examples
 
@@ -85,3 +83,28 @@
 
 (check-expect (player-connection LISTENER "White") (make-client 12 34 "White")) ; since any available port can be accessed, I chose two random numbers
 (check-expect (player-connection LISTENER "Black") (make-client 56 78 "Black"))
+
+;; RECEIVING PLAYER'S MOVES ;;
+
+;; receive-move: Client Color -> Any
+; receives the player's moves
+; header: (define (receive-move client color) (#false))
+
+;; Template
+
+; (define (receive-move client color)
+;  (... with-handlers ...)
+;  (cond
+;    [... (client-input-channel client) ...]
+;    [else ...]))
+    
+(define (receive-move client color)
+    (with-handlers ; built-in function for handling exceptions, that in this case are network errors
+        ([exn:fail:network? ; checks if an exception is related to the network
+          (lambda (exception) ; anonymous function with argument `exception`, because it's needed by `with-handlers`
+            (displayln (string-append color " wins because the opponent disconnected")) #false)]) ; in case of a network error, the function signals that the opponent is disconnected
+        (cond
+  [(not (false? (client-input-channel))) (read (client-input-channel client))] ; THIS PART IS A PLACEHOLDER THAT WILL BE CHANGED ACCORDING TO THE REST OF THE PROGRAM, SO I'LL WAIT FOR THE EXAMPLES
+  [else
+     (displayln "Invalid input channel") 
+     #false]))) ; if the client is disconnected, the function signals it and returns the state of the `input-channel`, so `#false`
