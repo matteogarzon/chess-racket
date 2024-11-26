@@ -53,7 +53,7 @@
 ;    (... input-channel ... output-channel ... color ...)))
 
 (define (connection-management input-channel output-channel color)
-    (displayln (string-append color " is connected")) ; `displayln`: "White is connected" or "Black is connected"
+    (println (string-append color " is connected")) ; `println`: "White is connected" or "Black is connected"
     (make-client input-channel output-channel color))
 
 ;; Examples
@@ -88,7 +88,7 @@
 
 ;; receive-move: Client Color -> Any
 ; receives the player's moves
-; header: (define (receive-move client color) (#false))
+; header: (define (receive-move client color) #false)
 
 ;; Template
 
@@ -102,9 +102,41 @@
     (with-handlers ; built-in function for handling exceptions, that in this case are network errors
         ([exn:fail:network? ; checks if an exception is related to the network
           (lambda (exception) ; anonymous function with argument `exception`, because it's needed by `with-handlers`
-            (displayln (string-append color " wins because the opponent disconnected")) #false)]) ; in case of a network error, the function signals that the opponent is disconnected
+            (println (string-append color " wins because the opponent disconnected")) #false)]) ; in case of a network error, the function signals that the opponent is disconnected
         (cond
   [(not (false? (client-input-channel))) (read (client-input-channel client))] ; THIS PART IS A PLACEHOLDER THAT WILL BE CHANGED ACCORDING TO THE REST OF THE PROGRAM, SO I'LL WAIT FOR THE EXAMPLES
   [else
-     (displayln "Invalid input channel") 
+     (println "Invalid input channel") 
      #false]))) ; if the client is disconnected, the function signals it and returns the state of the `input-channel`, so `#false`
+
+;; INTERPRETING THE MOVES ;;
+
+;; TEMPORARY DATA TYPE DEFINITION FOR MOVE
+
+; a Move is one of:
+; - 'quit
+; - 'disconnect
+; - a chess move (?)
+
+;; interpret-move: Client Color Move (?) -> Any ; I DON'T KNOW OF WHAT TYPE THE MOVE IS
+; interprets the moves according to the inputs received
+; header: (define (interpret-move moving-client opponent-client moving-color opponent-color move) #false)
+
+;; Template
+
+; (define (interpret-move moving-client opponent-client moving-color opponent-color move)
+;  (cond
+;    [... move ...]
+;    [... move ...]
+;    [else
+;     ... move ... opponent-client ...]))
+
+(define (interpret-move moving-client opponent-client moving-color opponent-color move)
+  (cond
+    [(equal? move 'disconnect)
+     (println (string-append opponent-color " wins because the opponent disconnected")) #false] ; if the player making the move gets disconnected, the opponent wins
+    [(equal? move 'quit)
+     (println (string-append opponent-color " wins for opponent's quitting")) #false] ; if the player making the move quits, the opponent wins
+    [else
+     (write move (client-output-channel opponent-client)) ; THIS PART IS A PLACEHOLDER THAT WILL BE CHANGED ACCORDING TO THE REST OF THE PROGRAM, SO I'LL WAIT FOR THE EXAMPLES
+     (flush-output (client-output-channel opponent-client))])) ; `flush-output`: guarantees that the data is immediately sent to `opponent-client` in case of a buffer
