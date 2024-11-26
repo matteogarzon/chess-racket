@@ -78,32 +78,44 @@
 ;; PAWN ONLY ;;
 ;;;;;;;;;;;;;;;
 
-
-;;;; ASK THIS INSTEAD OF MUTABLE LISTS
-; possible-pawn-moves : Posn -> List<Posn>
+; possible-pawn-moves : List<Posn> Posn -> List<Posn>
 ; returns list of possible moves for pawns
-(define (possible-pawn-moves current-position)
-  (if (move-one-forward? current-position)
-      (if (move-left-diagonal? current-position)
-          (if (move-right-diagonal? current-position)
-              (if (move-two-forward? current-position)
-                  (list (make-posn ))
-                  (list (make-posn )))
-      (t)))
+; function calls itself
+
+(define (possible-pawn-moves possible-moves current-position)
+  (local ((define MOVE-ONE-FORWARD (move-one-forward current-position))
+    (define MOVE-TWO-FORWARD (move-one-forward MOVE-ONE-FORWARD))
+    (define MOVE-LEFT-DIAGONAL (move-left-diagonal current-position))
+    (define MOVE-RIGHT-DIAGONAL (move-right-diagonal current-position)))
+    
+  (cond
+    [(and (move-one-forward? current-position) (not(member MOVE-ONE-FORWARD possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-ONE-FORWARD)) current-position)]
+    [(and (move-two-forward? current-position) (not(member MOVE-TWO-FORWARD possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-TWO-FORWARD)) current-position)]
+    [(and (move-right-diagonal? current-position) (not(member MOVE-RIGHT-DIAGONAL possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-RIGHT-DIAGONAL)) current-position)]
+    [(and (move-left-diagonal? current-position) (not(member MOVE-LEFT-DIAGONAL possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-LEFT-DIAGONAL)) current-position)]
+    [else possible-moves])))
+
+; Examples (use BOARD-VECTOR as reference)
+(check-expect (possible-pawn-moves '() (make-posn 3 1)) (list (make-posn 3 2) (make-posn 3 3))) ; starting position
+(check-expect (possible-pawn-moves '() (make-posn 3 2)) (list (make-posn 3 3)))
+(check-expect (possible-pawn-moves '() (make-posn 5 5)) (list (make-posn 6 6) (make-posn 4 6)))
 
 ;;;;;;;;
 ;;;;;;;;
 
 ; possible-moves : Posn, List<Posn>, Boolean -> List<Posn>
 ; from position and type of movement of piece, returns possible moves
-; only used for non-pawn pieces.
+; used for non-pawn pieces
+; header: (define (possible-moves (posn 1 0) KING-QUEEN-MOVES true) '((posn 1 2) (posn 1 3)))
+
 (define (possible-moves current-position movements is-repeatable)
  (map (lambda (move) (calculate-move move current-position)) (piece-movement)))
 
 ; calculate-move : Posn, Posn -> ???????
 (define (calculate-move move current-position)
   (local [(define new-posn (make-posn (+ (posn-x move) (posn-x current-position)) (+ (posn-y move) (posn-y current-position))))]
-  (when (and (in-bounds? new-posn) (not(my-piece? new-posn))) 1))) ; new pos is good!
+  (when
+      (and (in-bounds? new-posn) (not(my-piece? new-posn))) 1))) ; new pos is good!
 ;;;;;; ADD RECURSION
 
 ; in-bounds : Posn -> Boolean
@@ -115,18 +127,18 @@
 ; move-piece : Posn Posn -> void
 ; moves piece from original posn position to new position, and mutates BOARD-VECTOR accordingly
 (define (move-piece current-posn new-posn)
-  (begin ;;;;;;; OK????
+  (begin
     (set-piece new-posn)
     (set-null current-posn)))
 
 ;; HELPER FUNCTIONS FOR 'move-piece'
 ; set-piece: Posn -> void
 (define (set-piece position)
-  (vector-set! (vector-ref BOARD-VECTOR (posn-x position)) (posn-y position) (get-piece position)))
+  (vector-set! (vector-ref BOARD-VECTOR (posn-y position)) (posn-x position) (get-piece position)))
 
 ; set-null : Posn -> void
 (define (set-null position)
-    (vector-set! (vector-ref BOARD-VECTOR (posn-x position)) (posn-y position) 0))
+    (vector-set! (vector-ref BOARD-VECTOR (posn-y position)) (posn-x position) 0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -134,7 +146,7 @@
 ;; HELPER FUNCTIONS
 ; get-piece : Posn -> Maybe<Piece>
 (define (get-piece position)
-  (vector-ref (vector-ref BOARD-VECTOR (posn-x position)) (posn-y position)))
+  (vector-ref (vector-ref BOARD-VECTOR (posn-y position)) (posn-x position)))
 
 ; my-piece? : Piece -> Boolean
 ; checks if piece is of the local player, based on the player number on piece
@@ -145,35 +157,67 @@
 
 ; is-there-piece? : Posn -> Boolean
 ; checks whether there's a piece in the specified position
-(define (is-there-piece position)
+(define (is-there-piece? position)
   (cond
-    ;;;; ADD INBOUNDS
-    [(= 0 (get-piece position)) #false]
+    [(piece? (get-piece position)) #true]
+    [else #false]))
+
+(check-expect (is-there-piece? (make-posn 1 1)) #true)
+(check-expect (is-there-piece? (make-posn 5 5)) #false)
+(check-expect (is-there-piece? (make-posn 7 7)) #true)
+
+(define (is-there-opponent-piece? position)
+  (cond
+    [(and (piece? (get-piece position)) (= 2 (piece-player (get-piece position)))) #true]
+    [else #false]))
+
+(check-expect (is-there-opponent-piece? (make-posn 1 1)) #false)
+(check-expect (is-there-opponent-piece? (make-posn 5 5)) #false)
+(check-expect (is-there-opponent-piece? (make-posn 7 7)) #true)
+
+
+;;;; ADD INBOUNDS FOR ALL MOVE?
+; move-one-forward? : Posn -> Boolean
+(define (move-one-forward? position)
+  (cond
+    [(is-there-piece? (make-posn (posn-x position) (add1(posn-y position)))) #false]
     [else #true]))
 
+(check-expect (move-one-forward? (make-posn 1 2)) #true)
+(check-expect (move-one-forward? (make-posn 7 6)) #false)
 
-;; CAN USE SLIDE 9??????
-; move-one-forward? : Posn -> Boolean
 (define (move-one-forward position)
-  (cond
-    [(not(is-there-piece? (make-posn (+ 1 (posn-x position)) (+ 1 (posn-y position))))) #true]
-    [else #false]))
+  (make-posn (posn-x position) (add1(posn-y position))))
 
 ; move-two-forward? : Posn -> Boolean
-(define (move-two-forward position)
+; can only move if there is not a piece and is at starting point!
+(define (move-two-forward? position)
   (cond
-    [(not(is-there-piece? (make-posn (+ 2 (posn-x position)) (+ 2 (posn-y position))) #true))]
+    [(and (not(is-there-piece? (make-posn (posn-x position) (+ 2 (posn-y position))))) (= 1 (posn-y position))) #true]
     [else #false]))
 
-; move-left-oblique? : Posn -> Boolean
-(define (move-left-oblique position)
-  (cond
-    [(not(is-there-piece? (make-posn (- 1 (posn-x position)) (+ 1 (posn-y position))) #true))]
-    [else #false]))
+(check-expect (move-two-forward? (make-posn 1 1)) #true)
+(check-expect (move-two-forward? (make-posn 1 2)) #false)
+(check-expect (move-two-forward? (make-posn 7 5)) #false)
 
-
-; move-right-oblique? : Posn -> Boolean
-(define (move-right-oblique position)
+; move-left-diagonal? : Posn -> Boolean
+(define (move-left-diagonal? position)
   (cond
-    [(not(is-there-piece? (make-posn (+ 1 (posn-x position)) (+ 1 (posn-y position))) #true))]
-    [else #false]))
+    [(not(is-there-opponent-piece? (make-posn (sub1(posn-x position)) (add1(posn-y position))))) #false]
+    [else #true]))
+
+(check-expect (move-left-diagonal? (make-posn 2 2)) #false)
+(check-expect (move-left-diagonal? (make-posn 4 3)) #false)
+(check-expect (move-left-diagonal? (make-posn 5 5)) #true)
+
+(define (move-left-diagonal position)
+  (make-posn (sub1(posn-x position)) (add1(posn-y position))))
+
+; move-right-diagonal? : Posn -> Boolean
+(define (move-right-diagonal? position)
+  (cond
+    [(not(is-there-opponent-piece? (make-posn (add1(posn-x position)) (add1(posn-y position))))) #false]
+    [else #true]))
+
+(define (move-right-diagonal position)
+  (make-posn (add1(posn-x position)) (add1(posn-y position))))
