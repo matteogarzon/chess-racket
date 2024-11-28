@@ -101,13 +101,13 @@
 (define (receive-move client color)
     (with-handlers ; built-in function for handling exceptions, that in this case are network errors
         ([exn:fail:network? ; checks if an exception is related to the network
-          (lambda (exception) ; anonymous function with argument `exception`, because it's needed by `with-handlers`
+          (lambda (exception)
             (println (string-append color " wins because the opponent disconnected")) #false)]) ; in case of a network error, the function signals that the opponent is disconnected
         (cond
   [(not (false? (client-input-channel))) (read (client-input-channel client))] ; THIS PART IS A PLACEHOLDER THAT WILL BE CHANGED ACCORDING TO THE REST OF THE PROGRAM, SO I'LL WAIT FOR THE EXAMPLES
   [else
      (println "Invalid input channel") 
-     #false]))) ; if the client is disconnected, the function signals it and returns the state of the `input-channel`, so `#false`
+     #false]))) ; if the client is disconnected, the function signals it and ends the match
 
 ;; INTERPRETING THE MOVES ;;
 
@@ -118,20 +118,20 @@
 ; - 'disconnect
 ; - a chess move (?)
 
-;; interpret-move: Client Color Move (?) -> Any ; I DON'T KNOW OF WHAT TYPE THE MOVE IS
+;; interpret-move: Client Color Client Color Move (?) -> Any ; I DON'T KNOW OF WHAT TYPE THE MOVE IS
 ; interprets the moves according to the inputs received
-; header: (define (interpret-move moving-client opponent-client moving-color opponent-color move) #false)
+; header: (define (interpret-move moving-client moving-color opponent-client opponent-color move) #false)
 
 ;; Template
 
-; (define (interpret-move moving-client opponent-client moving-color opponent-color move)
+; (define (interpret-move moving-client moving-color opponent-client opponent-color move)
 ;  (cond
 ;    [... move ...]
 ;    [... move ...]
 ;    [else
 ;     ... move ... opponent-client ...]))
 
-(define (interpret-move moving-client opponent-client moving-color opponent-color move)
+(define (interpret-move moving-client moving-color opponent-client opponent-color move)
   (cond
     [(equal? move 'disconnect)
      (println (string-append opponent-color " wins because the opponent disconnected")) #false] ; if the player making the move gets disconnected, the opponent wins
@@ -140,3 +140,30 @@
     [else
      (write move (client-output-channel opponent-client)) ; THIS PART IS A PLACEHOLDER THAT WILL BE CHANGED ACCORDING TO THE REST OF THE PROGRAM, SO I'LL WAIT FOR THE EXAMPLES
      (flush-output (client-output-channel opponent-client))])) ; `flush-output`: guarantees that the data is immediately sent to `opponent-client` in case of a buffer
+
+;; ALTERNATING THE MOVES BETWEEN THE PLAYERS ;;
+
+;; alternate-move: Client Color Client Color Move (?) -> Any
+; alternates the moves between the two players, ensusring that they play alternately a turn each until the end of the match
+; header: (define (alternate-move moving-client moving-color opponent-client opponent-color move) #false)
+
+;; Template
+
+; (define (alternate-move moving-client moving-color opponent-client oppoennt-color move)
+;  (cond
+;    [(false? (... interpret-move ...) ...]
+;    [else
+;     (let (... (... (... receive-move ...) ...)
+;     (cond
+;      [(false? (... interpret-move ...) ...]
+;      [else (... alternate-move ...)]))]))
+
+(define (alternate-move moving-client moving-color opponent-client opponent-color move)
+  (cond
+    [(false? (interpret-move moving-client moving-color opponent-client opponent-color move)) #false] ; if `interpret-move` returns `#false`, then the match ends
+    [else
+     (let ((next-move (receive-move opponent-client opponent-color))) ; otherwise, the move is received by the opponent and the match continues
+     (cond
+       [(false? (interpret-move opponent-client opponent-color moving-client moving-color next-move)) #false] ; if the opponents move is `#false` (they got disconnected or quitted), then the match ends
+       [else (alternate-move opponent-client opponent-color moving-client moving-color next-move)]))])) ; otherwise, `alternate-move` is called recursively and the opponent makes his move
+; I WAIT FOR THE EXAMPLES
