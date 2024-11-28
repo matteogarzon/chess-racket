@@ -167,3 +167,19 @@
        [(false? (interpret-move opponent-client opponent-color moving-client moving-color next-move)) #false] ; if the opponents move is `#false` (they got disconnected or quitted), then the match ends
        [else (alternate-move opponent-client opponent-color moving-client moving-color next-move)]))])) ; otherwise, `alternate-move` is called recursively and the opponent makes his move
 ; I WAIT FOR THE EXAMPLES
+
+;; STARTING THE SERVER ;;
+
+; a Port is a Number
+; a port for incoming connection requests
+
+;; start-server: Port -> Client Client
+; starts the server for the match
+; header: (define (start-server port) (initial-white-client initial-black-client))
+
+;; Template
+
+; (define (start-server port)
+;  (set! initial-white-client ...)
+;  (set! initial-black-client ...)
+;  (alternate-move ...))
