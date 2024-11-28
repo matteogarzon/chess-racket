@@ -17,7 +17,7 @@
 (define ROOK-MOVES (append VERTICAL-MOVES HORIZONTAL-MOVES))
 
 ;; DATA TYPES
-; Piece is a strucutre:
+; Piece is a structure:
 ;   (make-piece type movement repeatable player color)
 ; where:
 
@@ -76,62 +76,18 @@
     (vector WHITE-ROOK WHITE-KNIGHT WHITE-BISHOP WHITE-QUEEN WHITE-KING WHITE-BISHOP WHITE-KNIGHT WHITE-ROOK)))
 
 
-;;;;;;;;;;;;;;;
-;; PAWN ONLY ;;
-;;;;;;;;;;;;;;;
-
-; possible-pawn-moves : List<Posn> Posn -> List<Posn>
-; returns list of possible moves for pawns
-; function calls itself
-
-(define (possible-pawn-moves possible-moves current-position)
-  (local ((define MOVE-ONE-FORWARD (move-one-forward current-position))
-    (define MOVE-TWO-FORWARD (move-one-forward MOVE-ONE-FORWARD))
-    (define MOVE-LEFT-DIAGONAL (move-left-diagonal current-position))
-    (define MOVE-RIGHT-DIAGONAL (move-right-diagonal current-position)))
-    
-  (cond
-    [(and (move-one-forward? current-position) (not(member MOVE-ONE-FORWARD possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-ONE-FORWARD)) current-position)]
-    [(and (move-two-forward? current-position) (not(member MOVE-TWO-FORWARD possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-TWO-FORWARD)) current-position)]
-    [(and (move-right-diagonal? current-position) (not(member MOVE-RIGHT-DIAGONAL possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-RIGHT-DIAGONAL)) current-position)]
-    [(and (move-left-diagonal? current-position) (not(member MOVE-LEFT-DIAGONAL possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-LEFT-DIAGONAL)) current-position)]
-    [else possible-moves])))
-
-; Examples (use BOARD-VECTOR as reference)
-(check-expect (possible-pawn-moves '() (make-posn 3 1)) (list (make-posn 3 2) (make-posn 3 3))) ; starting position
-(check-expect (possible-pawn-moves '() (make-posn 3 2)) (list (make-posn 3 3)))
-(check-expect (possible-pawn-moves '() (make-posn 5 5)) (list (make-posn 6 6) (make-posn 4 6)))
-
-;;;;;;;;;;;;;;;;;;;
-;; NON-PAWN ONLY ;;
-;;;;;;;;;;;;;;;;;;;
-
-; possible-moves : Posn, List<Posn>, Boolean -> List<Posn>
-; from position and type of movement of piece, returns possible moves
-; used for non-pawn pieces
-; header: (define (possible-moves (posn 1 0) KING-QUEEN-MOVES true) '((posn 1 2) (posn 1 3)))
-
-(define (possible-moves current-position movements is-repeatable)
- (map (lambda (move) (calculate-move move current-position)) (piece-movement)))
-
-; 1. for each item in the list, calculate the new posn. Use map to apply the thing, and get the new posn.
-
-; if repeatable
-; repeat 1, until in-bounds is true
-
-; calculate-move : Posn, Posn -> ???????
-; calculates move based on 'move' and 'current position'
-(define (calculate-move move current-position)
-  (local [(define new-posn (make-posn (+ (posn-x move) (posn-x current-position)) (+ (posn-y move) (posn-y current-position))))]
-  (when
-      (and (in-bounds? new-posn) (not(my-piece? new-posn))) 1))) ; new pos is good!
-;;;;;; ADD RECURSION
-
 ; in-bounds : Posn -> Boolean
+; checks if position is inside chess board
+; header: (define (in-bounds? (make-posn 5 5) #true))
 (define (in-bounds? position)
   (cond
     [(and (and (>= (posn-x position) 0) (<= (posn-x position) 7)) (and (>= (posn-y position) 0) (<= (posn-y position) 7))) #true]
     [else #false]))
+
+(check-expect (in-bounds? (make-posn 8 8)) #false)
+(check-expect (in-bounds? (make-posn 7 8)) #false)
+(check-expect (in-bounds? (make-posn 0 0)) #true)
+(check-expect (in-bounds? (make-posn 5 4)) #true)
 
 ; move-piece : Posn Posn -> void
 ; moves piece from original posn position to new position, and mutates BOARD-VECTOR accordingly
@@ -177,20 +133,21 @@
 
 (define (is-there-opponent-piece? position)
   (cond
-    [(and (piece? (get-piece position)) (= 2 (piece-player (get-piece position)))) #true]
+    [(and (in-bounds? position) (piece? (get-piece position)) (= 2 (piece-player (get-piece position)))) #true]
     [else #false]))
 
 (check-expect (is-there-opponent-piece? (make-posn 1 1)) #false)
 (check-expect (is-there-opponent-piece? (make-posn 5 5)) #false)
 (check-expect (is-there-opponent-piece? (make-posn 7 7)) #true)
+(check-expect (is-there-opponent-piece? (make-posn 8 8)) #false)
 
 
-;;;; ADD INBOUNDS FOR ALL MOVE?
 ; move-one-forward? : Posn -> Boolean
 (define (move-one-forward? position)
-  (cond
-    [(is-there-piece? (make-posn (posn-x position) (add1(posn-y position)))) #false]
-    [else #true]))
+  (local [(define new-posn (make-posn (posn-x position) (add1 (posn-y position))))]
+    (cond
+      [(and (not (is-there-piece? new-posn)) (in-bounds? new-posn)) #true]
+      [else #false])))
 
 (check-expect (move-one-forward? (make-posn 1 2)) #true)
 (check-expect (move-one-forward? (make-posn 7 6)) #false)
@@ -201,9 +158,10 @@
 ; move-two-forward? : Posn -> Boolean
 ; can only move if there is not a piece and is at starting point!
 (define (move-two-forward? position)
-  (cond
-    [(and (not(is-there-piece? (make-posn (posn-x position) (+ 2 (posn-y position))))) (= 1 (posn-y position))) #true]
-    [else #false]))
+  (local [(define new-posn (make-posn (posn-x position) (+ 2 (posn-y position))))]
+    (cond
+      [(and (not(is-there-piece? new-posn)) (= 1 (posn-y position)) (in-bounds? new-posn)) #true]
+      [else #false])))
 
 (check-expect (move-two-forward? (make-posn 1 1)) #true)
 (check-expect (move-two-forward? (make-posn 1 2)) #false)
@@ -230,3 +188,63 @@
 
 (define (move-right-diagonal position)
   (make-posn (add1(posn-x position)) (add1(posn-y position))))
+
+;;;;;;;;;;;;;;;
+;; PAWN ONLY ;;
+;;;;;;;;;;;;;;;
+
+; possible-pawn-moves : List<Posn> Posn -> List<Posn>
+; returns list of possible moves for pawns
+; function calls itself
+
+(define (possible-pawn-moves possible-moves current-position)
+  (local ((define MOVE-ONE-FORWARD (move-one-forward current-position))
+    (define MOVE-TWO-FORWARD (move-one-forward MOVE-ONE-FORWARD))
+    (define MOVE-LEFT-DIAGONAL (move-left-diagonal current-position))
+    (define MOVE-RIGHT-DIAGONAL (move-right-diagonal current-position)))
+    
+  (cond
+    [(and (move-one-forward? current-position) (not(member MOVE-ONE-FORWARD possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-ONE-FORWARD)) current-position)]
+    [(and (move-two-forward? current-position) (not(member MOVE-TWO-FORWARD possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-TWO-FORWARD)) current-position)]
+    [(and (move-right-diagonal? current-position) (not(member MOVE-RIGHT-DIAGONAL possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-RIGHT-DIAGONAL)) current-position)]
+    [(and (move-left-diagonal? current-position) (not(member MOVE-LEFT-DIAGONAL possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-LEFT-DIAGONAL)) current-position)]
+    [else possible-moves])))
+
+; Examples (use BOARD-VECTOR as reference)
+(check-expect (possible-pawn-moves '() (make-posn 3 1)) (list (make-posn 3 2) (make-posn 3 3))) ; starting position
+(check-expect (possible-pawn-moves '() (make-posn 3 2)) (list (make-posn 3 3)))
+(check-expect (possible-pawn-moves '() (make-posn 5 5)) (list (make-posn 6 6) (make-posn 4 6)))
+
+;;;;;;;;;;;;;;;;;;;
+;; NON-PAWN ONLY ;;
+;;;;;;;;;;;;;;;;;;;
+
+; calculate-move : List<Posn>, Posn, Boolean -> List<Posn>
+; calculates possible moves based on single 'move' and 'current position'
+; header:
+
+; template:
+
+(define (calculate-move new-moves move current-position is-repeatable)
+  (local [(define new-posn (make-posn (+ (posn-x move) (posn-x current-position)) (+ (posn-y move) (posn-y current-position))))]
+    (cond
+      [(and (in-bounds? new-posn) is-repeatable (or (is-there-opponent-piece? new-posn) not((is-there-piece? new-posn)))) (calculate-move (append new-moves (list new-posn)) move new-posn is-repeatable)]
+      [(and (in-bounds? new-posn) (not is-repeatable) (or (is-there-opponent-piece? new-posn) not((is-there-piece? new-posn)))) (append new-moves (list new-posn))]
+      [else new-moves])))
+
+; examples:
+(check-expect (calculate-move '() (make-posn 1 0) (make-posn 2 3) true) (list (make-posn 3 3) (make-posn 4 3) (make-posn 5 3) (make-posn 6 3) (make-posn 7 3)))
+(check-expect (calculate-move '() (make-posn 2 1) (make-posn 2 3) false) (list (make-posn 4 4))) ;; CHECK-EXPECT
+
+; calculate-all-moves : Posn, List<Posn>, Boolean -> List<List<Posn>>
+; from position and type of movement of piece, returns possible moves
+; used for non-pawn pieces
+; header: (define (possible-moves (make-posn 1 0) KING-QUEEN-MOVES true) '((posn 1 2) (posn 1 3)))
+
+; template:
+
+(define (calculate-all-moves current-position movements is-repeatable)
+ (map (lambda (move) (calculate-move '() move current-position is-repeatable)) movements))
+
+; examples:
+(calculate-all-moves (make-posn 3 1) DIAGONAL-MOVES true)

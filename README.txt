@@ -69,7 +69,7 @@
 
 - Implemented the function 'possible-pawns-moves' that returns a list of possible moves for pawns
 
-- Implemented the function 'possible-moves' that returns possible moves used for non-pawn pieces
+- Implemented the function 'calculate-all-moves' that returns all possible moves used for non-pawn pieces
 
 - Implemented the function 'calculate-move' that calculates move based on 'move' and 'current position'
 
@@ -86,13 +86,6 @@
 - Implemented the function 'move-left-diagonal?' 
 
 - Implemented the function 'move-right-diagonal?'
-
-
-
-
-
-
-
 
 
 
