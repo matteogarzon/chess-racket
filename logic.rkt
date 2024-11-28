@@ -1,6 +1,8 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
 #reader(lib "htdp-advanced-reader.ss" "lang")((modname logic) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
+(require racket/base)
+
 ;; NOTA PER LORIS E LEONARDO
 ; Per simplificare la logica a livello di array 2D, le pedine del giocatore locale sono state posizionate dalla parte dell'avversario (così basta dire posizione 0 e 0 al posto di 7 e 7, ecc..)
 ; Quindi, a livello di UI bisogna cambiare l'ordine una volta che si mettono le pedine nella scacchiera visiva.
@@ -37,7 +39,7 @@
 
 ; movement is a list of posn (representing the types of movements)
 ; repeatable is a boolean
-(define-struct piece [type movement repeatable player color])
+(define-struct piece [type movement repeatable player color] #:transparent)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -100,8 +102,9 @@
 (check-expect (possible-pawn-moves '() (make-posn 3 2)) (list (make-posn 3 3)))
 (check-expect (possible-pawn-moves '() (make-posn 5 5)) (list (make-posn 6 6) (make-posn 4 6)))
 
-;;;;;;;;
-;;;;;;;;
+;;;;;;;;;;;;;;;;;;;
+;; NON-PAWN ONLY ;;
+;;;;;;;;;;;;;;;;;;;
 
 ; possible-moves : Posn, List<Posn>, Boolean -> List<Posn>
 ; from position and type of movement of piece, returns possible moves
@@ -111,7 +114,13 @@
 (define (possible-moves current-position movements is-repeatable)
  (map (lambda (move) (calculate-move move current-position)) (piece-movement)))
 
+; 1. for each item in the list, calculate the new posn. Use map to apply the thing, and get the new posn.
+
+; if repeatable
+; repeat 1, until in-bounds is true
+
 ; calculate-move : Posn, Posn -> ???????
+; calculates move based on 'move' and 'current position'
 (define (calculate-move move current-position)
   (local [(define new-posn (make-posn (+ (posn-x move) (posn-x current-position)) (+ (posn-y move) (posn-y current-position))))]
   (when
