@@ -2,6 +2,13 @@
 ;; about the language level of this file in a form that our tools can easily process.
 #reader(lib "htdp-advanced-reader.ss" "lang")((modname logic) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
 (require racket/base)
+(provide get-piece)
+(provide piece?)
+(provide piece-type)
+(provide possible-pawn-moves)
+(provide calculate-all-moves)
+(provide piece-movement)
+(provide piece-repeatable)
 
 ;; NOTA PER LORIS E LEONARDO
 ; Per simplificare la logica a livello di array 2D, le pedine del giocatore locale sono state posizionate dalla parte dell'avversario (così basta dire posizione 0 e 0 al posto di 7 e 7, ecc..)
