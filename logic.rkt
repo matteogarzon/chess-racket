@@ -8,9 +8,22 @@
 (provide possible-pawn-moves)
 (provide calculate-all-moves)
 (provide piece-movement)
-(provide piece-repeatable)
+(provide piece-repeatable?)
+(provide BOARD-VECTOR)
+(provide DIAGONAL-MOVES)
+(provide KNIGHT-MOVES)
+(provide KING-QUEEN-MOVES)
+(provide VERTICAL-MOVES)
+(provide ROOK-MOVES)
 (provide move-piece)
+(provide is-there-piece?)
+(provide is-there-opponent-piece?)
+(provide set-null)
+(provide set-piece)
+(provide my-piece?)
 (provide in-bounds?)
+(require 2htdp/image)
+(require 2htdp/universe)
 
 ;; NOTA PER LORIS E LEONARDO
 ; Per simplificare la logica a livello di array 2D, le pedine del giocatore locale sono state posizionate dalla parte dell'avversario (così basta dire posizione 0 e 0 al posto di 7 e 7, ecc..)
@@ -20,15 +33,27 @@
 (define DIAGONAL-MOVES (list (make-posn 1 1) (make-posn 1 -1) (make-posn -1 1) (make-posn -1 -1)))
 (define VERTICAL-MOVES (list (make-posn 1 0) (make-posn -1 0)))
 (define HORIZONTAL-MOVES (list (make-posn 0 1) (make-posn 0 -1)))
-(define KNIGHT-MOVES   (list (make-posn 2 1) (make-posn 2 -1) (make-posn -2 1) (make-posn -2 -1) (make-posn 1 2) (make-posn 1 -2) (make-posn -1 2) (make-posn -1 -2)))
-
+(define KNIGHT-MOVES (list (make-posn 2 1) (make-posn 2 -1) (make-posn -2 1) (make-posn -2 -1) 
+                          (make-posn 1 2) (make-posn 1 -2) (make-posn -1 2) (make-posn -1 -2)))
 (define KING-QUEEN-MOVES (append DIAGONAL-MOVES VERTICAL-MOVES HORIZONTAL-MOVES))
 (define ROOK-MOVES (append VERTICAL-MOVES HORIZONTAL-MOVES))
 
 ;; DATA TYPES
-; Piece is a structure:
-;   (make-piece type movement repeatable player color)
-; where:
+; a Piece is a structure:
+; where
+;   type           :    String
+;   movement       :    Posn
+;   repeatable?    :    Boolean
+;   player         :    Number
+;   color          :    String
+;   dragged?       :    Boolean
+;   img            :    Image
+;   width          :    Number
+;   height         :    Number
+;   present?       :    Boolean
+; interpretation: a piece of the chessboard with his own type, movement-state,
+; repeatable-state, player, color, dragged-state, image, width, height, and present-state
+(define-struct piece [type movement repeatable? player color dragged? img width height present?] #:transparent)
 
 ; type is a string and can be one of the following:
 ; - King
@@ -47,51 +72,102 @@
 ; - White
 
 ; movement is a list of posn (representing the types of movements)
-; repeatable is a boolean
-(define-struct piece [type movement repeatable player color] #:transparent)
+; repeatable? is a boolean
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Defining the squares colors
+(define SQUARE-COLOR-1 "light blue")   ; Color 1
+(define SQUARE-COLOR-2 "white") ; Color 2
+
+; Defining the side of the squares
+(define SQUARE-SIDE 64)
+
+; Defining the division ratio (i.e. how big the pieces are in relation to the squares on the board)
+(define DIV-RATIO (/ SQUARE-SIDE 130))
+
+; Setting the images of the pieces
+; Pawns
+(define B-PAWN-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-pawn.png"))) ; Black pawn
+(define W-PAWN-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-pawn.png"))) ; White pawn
+
+; Bishops
+(define B-BISHOP-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-bishop.png"))) ; Black bishop
+(define W-BISHOP-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-bishop.png"))) ; White bishop
+
+; Kings
+(define B-KING-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-king.png"))) ; Black king
+(define W-KING-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-king.png"))) ; White king
+
+; Queens
+(define B-QUEEN-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-queen.png"))) ; Black queen
+(define W-QUEEN-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-queen.png"))) ; White queen
+
+; Rooks
+(define B-ROOK-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-rook.png"))) ; Black rook
+(define W-ROOK-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-rook.png"))) ; White rook
+
+; Knights
+(define B-KNIGHT-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-knight.png"))) ; Black knight
+(define W-KNIGHT-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-knight.png"))) ; White knight
+
+; Defining the images dimensions
+(define pawn-width (image-width B-PAWN-IMAGE))   ; Pawn width
+(define pawn-height (image-height B-PAWN-IMAGE)) ; Pawn height
+
+(define bishop-width (image-width B-BISHOP-IMAGE))   ; Bishop width
+(define bishop-height (image-height B-BISHOP-IMAGE)) ; Bishop height
+
+(define king-width (image-width B-KING-IMAGE))   ; King width
+(define king-height (image-height B-KING-IMAGE)) ; King height
+
+(define queen-width (image-width B-QUEEN-IMAGE))   ; Queen width
+(define queen-height (image-height B-QUEEN-IMAGE)) ; Queen height
+
+(define rook-width (image-width B-ROOK-IMAGE))   ; Rook width
+(define rook-height (image-height B-ROOK-IMAGE)) ; Rook height
+
+(define knight-width (image-width B-KNIGHT-IMAGE))   ; Knight width
+(define knight-height (image-height B-KNIGHT-IMAGE)) ; Knight height
 
 ;; STARTING PIECES
-; BLACK
-(define BLACK-KING (make-piece "king" KING-QUEEN-MOVES false 1 "BLACK"))
-(define BLACK-QUEEN (make-piece "queen" KING-QUEEN-MOVES true 1 "BLACK"))
-
-(define BLACK-KNIGHT (make-piece "knight" KNIGHT-MOVES false 1 "BLACK"))
-(define BLACK-ROOK (make-piece "rook" ROOK-MOVES true 1 "BLACK"))
-(define BLACK-BISHOP (make-piece "bishop" DIAGONAL-MOVES true 1 "BLACK"))
-(define BLACK-PAWN (make-piece "pawn" '(make-posn 0 1) false 1 "BLACK"))
-
 ; WHITES
-(define WHITE-KING (make-piece "king" KING-QUEEN-MOVES false 2 "WHITE"))
-(define WHITE-QUEEN (make-piece "queen" KING-QUEEN-MOVES true 2 "WHITE"))
+(define W-PAWN (make-piece "pawn" (make-posn 0 1) #f 2 "white" #f W-PAWN-IMAGE pawn-width pawn-height #t ))
+(define W-KING (make-piece "king" KING-QUEEN-MOVES #f 2 "white" #f W-KING-IMAGE king-width king-height #t))
+(define W-QUEEN (make-piece "queen" KING-QUEEN-MOVES #t 2 "white" #f W-QUEEN-IMAGE queen-width queen-height #t))
+(define W-BISHOP (make-piece "bishop" DIAGONAL-MOVES #t 2 "white" #f W-BISHOP-IMAGE bishop-width bishop-height #t))
+(define W-ROOK (make-piece "rook" ROOK-MOVES #t 2 "white" #f W-ROOK-IMAGE rook-width rook-height #t))
+(define W-KNIGHT (make-piece "knight" KNIGHT-MOVES #t 2 "white" #f W-KNIGHT-IMAGE knight-width knight-height #t))
 
-(define WHITE-KNIGHT (make-piece "knight" KNIGHT-MOVES false 2 "WHITE"))
-(define WHITE-ROOK (make-piece "rook" ROOK-MOVES true 2 "WHITE"))
-(define WHITE-BISHOP (make-piece "bishop" DIAGONAL-MOVES true 2 "WHITE"))
-(define WHITE-PAWN (make-piece "pawn" '(make-posn 0 1) false 2 "WHITE"))
+; BLACK
+(define B-PAWN (make-piece "pawn" (make-posn 0 1) #f 1 "black" #f B-PAWN-IMAGE pawn-width pawn-height #t))
+(define B-KING (make-piece "king" KING-QUEEN-MOVES #f 1 "black" #f B-KING-IMAGE king-width king-height #t))
+(define B-QUEEN (make-piece "queen" KING-QUEEN-MOVES #t 1 "black" #f B-QUEEN-IMAGE queen-width queen-height #t))
+(define B-BISHOP (make-piece "bishop" DIAGONAL-MOVES #t 1 "black" #f B-BISHOP-IMAGE bishop-width bishop-height #t))
+(define B-ROOK (make-piece "rook" ROOK-MOVES #t 1 "black" #f B-ROOK-IMAGE rook-width rook-height #t))
+(define B-KNIGHT (make-piece "knight" KNIGHT-MOVES #t 1 "black" #f B-KNIGHT-IMAGE knight-width knight-height #t))
 
 ; Board, with initial 
 (define BOARD-VECTOR
   (vector
-    (vector BLACK-ROOK BLACK-KNIGHT BLACK-BISHOP BLACK-QUEEN BLACK-KING BLACK-BISHOP BLACK-KNIGHT BLACK-ROOK)
-    (vector BLACK-PAWN BLACK-PAWN BLACK-PAWN BLACK-PAWN BLACK-PAWN BLACK-PAWN BLACK-PAWN BLACK-PAWN)
+    (vector B-ROOK B-KNIGHT B-BISHOP B-QUEEN B-KING B-BISHOP B-KNIGHT B-ROOK)
+    (vector B-PAWN B-PAWN B-PAWN B-PAWN B-PAWN B-PAWN B-PAWN B-PAWN)
     (vector 0 0 0 0 0 0 0 0)
     (vector 0 0 0 0 0 0 0 0)
     (vector 0 0 0 0 0 0 0 0)
     (vector 0 0 0 0 0 0 0 0)
-    (vector WHITE-PAWN WHITE-PAWN WHITE-PAWN WHITE-PAWN WHITE-PAWN WHITE-PAWN WHITE-PAWN)
-    (vector WHITE-ROOK WHITE-KNIGHT WHITE-BISHOP WHITE-QUEEN WHITE-KING WHITE-BISHOP WHITE-KNIGHT WHITE-ROOK)))
-
+    (vector W-PAWN W-PAWN W-PAWN W-PAWN W-PAWN W-PAWN W-PAWN W-PAWN)
+    (vector W-ROOK W-KNIGHT W-BISHOP W-QUEEN W-KING W-BISHOP W-KNIGHT W-ROOK)))
 
 ; in-bounds : Posn -> Boolean
 ; checks if position is inside chess board
 ; header: (define (in-bounds? (make-posn 5 5) #true))
-(define (in-bounds? position)
-  (cond
-    [(and (and (>= (posn-x position) 0) (<= (posn-x position) 7)) (and (>= (posn-y position) 0) (<= (posn-y position) 7))) #true]
-    [else #false]))
+(define (in-bounds? pos)
+  (and (>= (posn-x pos) 0)
+       (< (posn-x pos) 8)
+       (>= (posn-y pos) 0)
+       (< (posn-y pos) 8)))
 
 (check-expect (in-bounds? (make-posn 8 8)) #false)
 (check-expect (in-bounds? (make-posn 7 8)) #false)
@@ -126,7 +202,7 @@
 ; checks if piece is of the local player, based on the player number on piece
 (define (my-piece? piece)
   (cond
-    [(equal? piece-player 1) #true]
+    [(equal? (piece-player piece) 1) #true]
     [else #false]))
 
 ; is-there-piece? : Posn -> Boolean
@@ -169,7 +245,9 @@
 (define (move-two-forward? position)
   (local [(define new-posn (make-posn (posn-x position) (+ 2 (posn-y position))))]
     (cond
-      [(and (not(is-there-piece? new-posn)) (= 1 (posn-y position)) (in-bounds? new-posn)) #true]
+      [(and (not (is-there-piece? new-posn))
+            (= 1 (posn-y position))
+            (in-bounds? new-posn)) #true]
       [else #false])))
 
 (check-expect (move-two-forward? (make-posn 1 1)) #true)
@@ -207,17 +285,45 @@
 ; function calls itself
 
 (define (possible-pawn-moves possible-moves current-position)
-  (local ((define MOVE-ONE-FORWARD (move-one-forward current-position))
-    (define MOVE-TWO-FORWARD (move-one-forward MOVE-ONE-FORWARD))
-    (define MOVE-LEFT-DIAGONAL (move-left-diagonal current-position))
-    (define MOVE-RIGHT-DIAGONAL (move-right-diagonal current-position)))
+  (local [(define row (posn-y current-position))
+          (define col (posn-x current-position))
+          (define piece (get-piece current-position))
+          
+          ; Forward moves
+          (define forward-pos (make-posn col (+ row 1)))
+          (define two-forward-pos (make-posn col (+ row 2)))
+          
+          ; Diagonal captures
+          (define right-diag (make-posn (+ col 1) (+ row 1)))
+          (define left-diag (make-posn (- col 1) (+ row 1)))]
     
-  (cond
-    [(and (move-one-forward? current-position) (not(member MOVE-ONE-FORWARD possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-ONE-FORWARD)) current-position)]
-    [(and (move-two-forward? current-position) (not(member MOVE-TWO-FORWARD possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-TWO-FORWARD)) current-position)]
-    [(and (move-right-diagonal? current-position) (not(member MOVE-RIGHT-DIAGONAL possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-RIGHT-DIAGONAL)) current-position)]
-    [(and (move-left-diagonal? current-position) (not(member MOVE-LEFT-DIAGONAL possible-moves))) (possible-pawn-moves (append possible-moves (list MOVE-LEFT-DIAGONAL)) current-position)]
-    [else possible-moves])))
+    (let ([moves '()])
+      ; Add forward move if square is empty
+      (when (and (in-bounds? forward-pos)
+                 (not (is-there-piece? forward-pos)))
+        (set! moves (cons forward-pos moves))
+        
+        ; Add two-square move if at starting position and path is clear
+        (when (and (or (and (equal? (piece-color piece) "white") (= row 6))
+                       (and (equal? (piece-color piece) "black") (= row 1)))
+                  (in-bounds? two-forward-pos)
+                  (not (is-there-piece? two-forward-pos)))
+          (set! moves (cons two-forward-pos moves))))
+      
+      ; Add diagonal captures
+      (when (and (in-bounds? right-diag)
+                 (is-there-piece? right-diag)
+                 (not (equal? (piece-color piece)
+                            (piece-color (get-piece right-diag)))))
+        (set! moves (cons right-diag moves)))
+      
+      (when (and (in-bounds? left-diag)
+                 (is-there-piece? left-diag)
+                 (not (equal? (piece-color piece)
+                            (piece-color (get-piece left-diag)))))
+        (set! moves (cons left-diag moves)))
+      
+      (append possible-moves moves))))
 
 ; Examples (use BOARD-VECTOR as reference)
 (check-expect (possible-pawn-moves '() (make-posn 3 1)) (list (make-posn 3 2) (make-posn 3 3))) ; starting position
@@ -232,13 +338,18 @@
 ; calculates possible moves based on single 'move' and 'current position'
 ; header:
 
-; template:
-
 (define (calculate-move new-moves move current-position is-repeatable)
-  (local [(define new-posn (make-posn (+ (posn-x move) (posn-x current-position)) (+ (posn-y move) (posn-y current-position))))]
+  (local [(define new-posn (make-posn (+ (posn-x move) (posn-x current-position))
+                                      (+ (posn-y move) (posn-y current-position))))]
     (cond
-      [(and (in-bounds? new-posn) is-repeatable (or (is-there-opponent-piece? new-posn) not((is-there-piece? new-posn)))) (calculate-move (append new-moves (list new-posn)) move new-posn is-repeatable)]
-      [(and (in-bounds? new-posn) (not is-repeatable) (or (is-there-opponent-piece? new-posn) not((is-there-piece? new-posn)))) (append new-moves (list new-posn))]
+      [(and (in-bounds? new-posn)
+            (or (not (is-there-piece? new-posn))
+                (is-there-opponent-piece? new-posn)))
+       (if (is-there-piece? new-posn)
+           (append new-moves (list new-posn)) ; Stop if there's a piece
+           (if is-repeatable
+               (calculate-move (append new-moves (list new-posn)) move new-posn is-repeatable)
+               (append new-moves (list new-posn))))]
       [else new-moves])))
 
 ; examples:
@@ -250,10 +361,10 @@
 ; used for non-pawn pieces
 ; header: (define (possible-moves (make-posn 1 0) KING-QUEEN-MOVES true) '((posn 1 2) (posn 1 3)))
 
-; template:
-
 (define (calculate-all-moves current-position movements is-repeatable)
- (map (lambda (move) (calculate-move '() move current-position is-repeatable)) movements))
+  (apply append
+         (map (lambda (move) (calculate-move '() move current-position is-repeatable))
+              movements)))
 
 ; examples:
 (calculate-all-moves (make-posn 3 1) DIAGONAL-MOVES true)
