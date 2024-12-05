@@ -567,6 +567,11 @@
 ;;;;;;;;;; Functions ;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; Check if a click is inside the button
+(define (inside-button? x y)
+  (and (<= button-x x (+ button-x button-width))
+       (<= button-y y (+ button-y button-height))))
+
 ;;;;; inside-image? ;;;;;
 
 ;; Input/Output
@@ -841,7 +846,6 @@
 ;;;;; handle-mouse ;;;;;
 
 ; handle-mouse : State Number Number String -> State
-
 ;; Implmentation
 (define (handle-mouse state x y event)
   (cond
@@ -876,8 +880,28 @@
             state)]))]
     [else state]))
 
+;; INPUT/OUTPUT
+; handle-key: KeyEvent -> AppState
+; modify state 's' in response to 'key' being pressed
+; header: (define (handle-key s key) s)
+
+; Examples
+(check-expect (handle-key INITIAL-STATE "q") (quit INITIAL-STATE))
+(check-expect (handle-key DRAWING "y") (cancel-line DRAWING))
+
+; Template
+; (define (handle-key s key)
+;   ... (quit s) ... (cancel-line s))
+
+(define (handle-key s key)
+  (cond
+    [(string=? key "q")         (end-game s)]         ; select's app's state to quit
+    [(string=? key "y")    (cancel-line s)]  ; cancel currently drawn line 
+    [else s]))                                    ; no change
+
 ; Run the program
 (big-bang INITIAL-STATE
   (name "Chess")
   (on-mouse handle-mouse)
+  (on-key handle-key)
   (to-draw render))
