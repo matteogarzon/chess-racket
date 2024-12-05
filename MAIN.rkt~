@@ -878,6 +878,5 @@
 
 ; Run the program
 (big-bang INITIAL-STATE
-  (name "Chess")
-  (on-mouse handle-mouse)
-  (to-draw render))
+          (on-mouse handle-mouse)
+          (to-draw render))

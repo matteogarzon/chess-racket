@@ -25,10 +25,6 @@
 (require 2htdp/image)
 (require 2htdp/universe)
 
-;; NOTA PER LORIS E LEONARDO
-; Per simplificare la logica a livello di array 2D, le pedine del giocatore locale sono state posizionate dalla parte dell'avversario (così basta dire posizione 0 e 0 al posto di 7 e 7, ecc..)
-; Quindi, a livello di UI bisogna cambiare l'ordine una volta che si mettono le pedine nella scacchiera visiva.
-
 ; Types of Moves
 (define DIAGONAL-MOVES (list (make-posn 1 1) (make-posn 1 -1) (make-posn -1 1) (make-posn -1 -1)))
 (define VERTICAL-MOVES (list (make-posn 1 0) (make-posn -1 0)))
@@ -195,8 +191,17 @@
 
 ;; HELPER FUNCTIONS
 ; get-piece : Posn -> Maybe<Piece>
+; return the piece at the determined position
+; header: (define (get-piece (make-posn 0 0) BLACK-ROOK)
+
+; template:
+; (define (get-piece position)
+;  (... BOARD-VECTOR ... position))
 (define (get-piece position)
   (vector-ref (vector-ref BOARD-VECTOR (posn-y position)) (posn-x position)))
+
+; examples
+(check-expect (get-piece (make-posn 0 3)) 0)
 
 ; my-piece? : Piece -> Boolean
 ; checks if piece is of the local player, based on the player number on piece
@@ -207,6 +212,14 @@
 
 ; is-there-piece? : Posn -> Boolean
 ; checks whether there's a piece in the specified position
+; header: (define (is-there-piece? (make-posn 0 0)) #true)
+
+; template:
+; (define (is-there-piece? position)
+;  (cond
+;    [...position... #true]
+;    [else #false]))
+
 (define (is-there-piece? position)
   (cond
     [(piece? (get-piece position)) #true]
@@ -216,6 +229,15 @@
 (check-expect (is-there-piece? (make-posn 5 5)) #false)
 (check-expect (is-there-piece? (make-posn 7 7)) #true)
 
+; is-there-opponent-piece? : Posn -> Boolean
+; checkes whether there's an opponent piece in the specified position
+; header: (define (is-there-opponent-piece? position)
+
+; template
+; (define (is-there-opponent-piece? position)
+;  (cond
+;    [... position ... #true]
+;    [else #false]))
 (define (is-there-opponent-piece? position)
   (cond
     [(and (in-bounds? position) (piece? (get-piece position)) (= 2 (piece-player (get-piece position)))) #true]
@@ -228,6 +250,8 @@
 
 
 ; move-one-forward? : Posn -> Boolean
+; checks whether the piece can move one position forward
+; header: (define (move-one-forward? (make-posn 0 0)) #false)
 (define (move-one-forward? position)
   (local [(define new-posn (make-posn (posn-x position) (add1 (posn-y position))))]
     (cond
@@ -237,11 +261,24 @@
 (check-expect (move-one-forward? (make-posn 1 2)) #true)
 (check-expect (move-one-forward? (make-posn 7 6)) #false)
 
+
+; move-one-forward: Posn -> Posn
+; returns the position when the piece moves by one forward.
+; header: (define (move-one-forward (make-posn 0 0) (make-posn 0 1))
 (define (move-one-forward position)
   (make-posn (posn-x position) (add1(posn-y position))))
 
 ; move-two-forward? : Posn -> Boolean
-; can only move if there is not a piece and is at starting point!
+; checks whether the piece can move by two forward (can only move if there is not a piece and is at starting point!)
+; header: (define (move-one-forward? (make-posn 0 0)) #false)
+
+; template
+; (define (move-two-forward? position)
+;  (local [(define new-posn (...position...))]
+;    (cond
+;      [(...new-posn...position...) #true]
+;      [else #false])))
+
 (define (move-two-forward? position)
   (local [(define new-posn (make-posn (posn-x position) (+ 2 (posn-y position))))]
     (cond
@@ -255,6 +292,15 @@
 (check-expect (move-two-forward? (make-posn 7 5)) #false)
 
 ; move-left-diagonal? : Posn -> Boolean
+; checks whether the piece can move diagonally left by one place
+; header: (define (move-left-diagonal? (make-posn 0 0)) #false)
+
+; template:
+; (define (move-left-diagonal? position)
+;  (cond
+;    [(...position...) #false]
+;    [else #true]))
+
 (define (move-left-diagonal? position)
   (cond
     [(not(is-there-opponent-piece? (make-posn (sub1(posn-x position)) (add1(posn-y position))))) #false]
@@ -267,7 +313,21 @@
 (define (move-left-diagonal position)
   (make-posn (sub1(posn-x position)) (add1(posn-y position))))
 
+; examples
+(check-expect (move-left-diagonal? (make-posn 2 2)) #false)
+(check-expect (move-left-diagonal? (make-posn 4 3)) #false)
+(check-expect (move-left-diagonal? (make-posn 5 5)) #true)
+
 ; move-right-diagonal? : Posn -> Boolean
+; checks whether the piece can move diagonally right by one place
+; header: (define (move-right-diagonal? (make-posn 0 0)) #false)
+
+; template:
+; (define (move-right-diagonal? position)
+;  (cond
+;    [(...position...) #false]
+;    [else #true]))
+
 (define (move-right-diagonal? position)
   (cond
     [(not(is-there-opponent-piece? (make-posn (add1(posn-x position)) (add1(posn-y position))))) #false]
@@ -276,13 +336,18 @@
 (define (move-right-diagonal position)
   (make-posn (add1(posn-x position)) (add1(posn-y position))))
 
+; examples:
+(check-expect (move-right-diagonal? (make-posn 2 2)) #false)
+(check-expect (move-right-diagonal? (make-posn 4 3)) #false)
+(check-expect (move-right-diagonal? (make-posn 5 5)) #true)
+
 ;;;;;;;;;;;;;;;
 ;; PAWN ONLY ;;
 ;;;;;;;;;;;;;;;
 
 ; possible-pawn-moves : List<Posn> Posn -> List<Posn>
 ; returns list of possible moves for pawns
-; function calls itself
+; header: (define (possible-pawn-moves (cons ()) (make-posn 1 0)) (cons ()))
 
 (define (possible-pawn-moves possible-moves current-position)
   (local [(define row (posn-y current-position))
@@ -325,7 +390,7 @@
       
       (append possible-moves moves))))
 
-; Examples (use BOARD-VECTOR as reference)
+; examples
 (check-expect (possible-pawn-moves '() (make-posn 3 1)) (list (make-posn 3 2) (make-posn 3 3))) ; starting position
 (check-expect (possible-pawn-moves '() (make-posn 3 2)) (list (make-posn 3 3)))
 (check-expect (possible-pawn-moves '() (make-posn 5 5)) (list (make-posn 6 6) (make-posn 4 6)))
@@ -334,9 +399,65 @@
 ;; NON-PAWN ONLY ;;
 ;;;;;;;;;;;;;;;;;;;
 
+; CASTLING
+; can-move-two-right?
+; checks whether the king can move two places to the right. 
+(define (can-move-two-right? current-position)
+  (local [(define first-posn (make-posn (add1 (posn-x current-position)) (posn-x current-position)))
+          (define second-posn (make-posn (add1 (posn-x first-posn)) (posn-x first-posn)))]
+    (cond
+      [(and (false? (is-there-piece? first-posn) (false? (is-there-piece? second-posn)))) #true]
+      [else #false])))
+
+; can-move-two-left?
+(define (can-move-two-left? current-position)
+  (local [(define first-posn (make-posn (sub1 (posn-x current-position)) (posn-x current-position)))
+          (define second-posn (make-posn (sub1 (posn-x first-posn)) (posn-x first-posn)))]
+    (cond
+      [(and (boolean=? #false (is-there-piece? first-posn) (boolean=? #false (is-there-piece? second-posn)))) #true]
+      [else #false])))
+
+; can-castle-right?
+(define (can-castle-right? current-position)
+  (cond
+    [(and (= 0 (posn-x current-position)) (= 4 (posn-y current-position)) (= "rook" (piece-type (get-piece (make-posn 0 7)))) (can-move-two-right? current-position)) #true]
+    [else #false]))
+
+; can-castle-left?
+(define (can-castle-left? current-position)
+  (cond
+    [(and (= 0 (posn-x current-position)) (= 4 (posn-y current-position)) (= "rook" (piece-type (get-piece (make-posn 0 0)))) (can-move-two-left? current-position)) #true]
+    [else #false]))
+
+; castling: Posn -> Maybe<List>
+; returns a list with moves for castling, if possible. Otherwise, returns #false.
+; header: (define (castling (make-posn 0 4)) #false)
+(define (castling current-position)
+  (local [(define right (can-castle-right? current-position))
+          (define left (can-castle-left? current-position))]
+  (cond
+    [(and (boolean=? #true right) (boolean=? #true left)) (list (make-posn 0 6) (make-posn 0 4))]
+    [(boolean=? #true right) (list (make-posn 0 6))]
+    [(boolean=? #true left) (list (make-posn 0 4))]
+    [else #false])))
+
+
+; KING MOVES
+; calculate-all-kings-moves: 
+(define (calculate-all-kings-moves current-position movements is-repeatable)
+  (local [(define CASTLING-LIST (castling current-position))
+          (define KING-MOVES (calculate-all-moves current-position movements is-repeatable))]
+    (cond
+      [(boolean? CASTLING-LIST) KING-MOVES]
+      [else (append CASTLING-LIST KING-MOVES)])))
+
+
+; GENERAL
 ; calculate-move : List<Posn>, Posn, Boolean -> List<Posn>
 ; calculates possible moves based on single 'move' and 'current position'
 ; header:
+
+; template:
 
 (define (calculate-move new-moves move current-position is-repeatable)
   (local [(define new-posn (make-posn (+ (posn-x move) (posn-x current-position))
@@ -360,6 +481,8 @@
 ; from position and type of movement of piece, returns possible moves
 ; used for non-pawn pieces
 ; header: (define (possible-moves (make-posn 1 0) KING-QUEEN-MOVES true) '((posn 1 2) (posn 1 3)))
+
+; template:
 
 (define (calculate-all-moves current-position movements is-repeatable)
   (apply append
