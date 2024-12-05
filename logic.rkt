@@ -174,10 +174,18 @@
 ; moves piece from original posn position to new position, and mutates BOARD-VECTOR accordingly
 (define (move-piece current-posn new-posn)
   (begin
+    (checkmate new-posn)
     (set-piece new-posn)
     (set-null current-posn)))
 
 ;; HELPER FUNCTIONS FOR 'move-piece'
+; checkamte
+; checks for checkmate, if so, end game.
+(define (checkmate position)
+  (cond
+    [(= "KING" (piece-type (get-piece position))) (displayln "CHECKMATE! Press q to return to home screen.")]
+    [else (void)]))
+
 ; set-piece: Posn -> void
 (define (set-piece position)
   (vector-set! (vector-ref BOARD-VECTOR (posn-y position)) (posn-x position) (get-piece position)))
@@ -451,6 +459,17 @@
       [(boolean? CASTLING-LIST) KING-MOVES]
       [else (append CASTLING-LIST KING-MOVES)])))
 
+; can-promote-pawn?
+; checks whether pawn can be promoted to a Queen based on 'current-position'
+(define (can-promote-pawn? current-positon)
+  (cond
+    [= 7 (posn-y current-positon) #true]
+    [else #false]))
+
+; promote-pawn
+; promotes the pawn to a Queen in the 'current-position' posn. 
+(define (promote-pawn current-position)
+  (vector-set! (vector-ref BOARD-VECTOR (posn-y current-position)) (posn-x current-position) B-QUEEN))
 
 ; GENERAL
 ; calculate-move : List<Posn>, Posn, Boolean -> List<Posn>
@@ -475,7 +494,7 @@
 
 ; examples:
 (check-expect (calculate-move '() (make-posn 1 0) (make-posn 2 3) true) (list (make-posn 3 3) (make-posn 4 3) (make-posn 5 3) (make-posn 6 3) (make-posn 7 3)))
-(check-expect (calculate-move '() (make-posn 2 1) (make-posn 2 3) false) (list (make-posn 4 4))) ;; CHECK-EXPECT
+(check-expect (calculate-move '() (make-posn 2 1) (make-posn 2 3) false) (list (make-posn 4 4)))
 
 ; calculate-all-moves : Posn, List<Posn>, Boolean -> List<List<Posn>>
 ; from position and type of movement of piece, returns possible moves
