@@ -9,6 +9,8 @@
 (provide calculate-all-moves)
 (provide piece-movement)
 (provide piece-repeatable)
+(provide move-piece)
+(provide in-bounds?)
 
 ;; NOTA PER LORIS E LEONARDO
 ; Per simplificare la logica a livello di array 2D, le pedine del giocatore locale sono state posizionate dalla parte dell'avversario (così basta dire posizione 0 e 0 al posto di 7 e 7, ecc..)
