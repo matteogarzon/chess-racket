@@ -1,6 +1,6 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
-#reader(lib "htdp-advanced-reader.ss" "lang")((modname TEST) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
+#reader(lib "htdp-advanced-reader.ss" "lang")((modname MAIN) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
 ;%%%%%%%%%%%%%%%%%%%%;
 ;#### CHESS GAME ####;
 ;%%%%%%%%%%%%%%%%%%%%;
@@ -12,6 +12,7 @@
 (require 2htdp/image)
 (require 2htdp/universe)
 (require racket/base)
+(require "logic.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Data type ;;;;;;;;;;
@@ -19,16 +20,17 @@
 
 ; a Piece is a structure:
 ; where
-;   position       :    Posn
+;   type           :    String
+;   movements      :    List<Posn>
+;   repeatable?    :    Boolean
+;   player         :    Number
+;   color          :    String
 ;   dragged?       :    Boolean
 ;   img            :    Image
 ;   width          :    Number
 ;   height         :    Number
 ;   present?       :    Boolean
-;   color          :    String
-; interpretation: a piece of the chessboard with his own position,
-; width, height, color, dragged-state, present-state and image
-(define-struct piece [position dragged? img width height present? color] #:transparent)
+(define-struct piece [type movement repeatable? player color dragged? img width height present?] #:transparent)
 
 ; a Color is one of the following:
 ; - "White"
@@ -136,12 +138,12 @@
 (define W-ROOK1-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-rook.png"))) ; White rook 1
 (define W-ROOK2-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-rook.png"))) ; White rook 2
 
-; Horses
-(define B-HORSE1-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-horse.png"))) ; Black horse 1
-(define B-HORSE2-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-horse.png"))) ; Black horse 2
+; Knights
+(define B-KNIGHT1-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-knight.png"))) ; Black knight 1
+(define B-KNIGHT2-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-knight.png"))) ; Black knight 2
 
-(define W-HORSE1-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-horse.png"))) ; White horse 1
-(define W-HORSE2-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-horse.png"))) ; White horse 2
+(define W-KNIGHT1-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-knight.png"))) ; White knight 1
+(define W-KNIGHT2-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-knight.png"))) ; White knight 2
 
 ; Defining the images dimensions
 (define pawn-width (image-width B-PAWN1-IMAGE))   ; Pawn width
@@ -159,101 +161,407 @@
 (define rook-width (image-width B-ROOK1-IMAGE))   ; Rook width
 (define rook-height (image-height B-ROOK1-IMAGE)) ; Rook height
 
-(define horse-width (image-width B-HORSE1-IMAGE))   ; Horse width
-(define horse-height (image-height B-HORSE1-IMAGE)) ; Horse height
+(define knight-width (image-width B-KNIGHT1-IMAGE))   ; Knight width
+(define knight-height (image-height B-KNIGHT1-IMAGE)) ; Knight height
+
 
 ; Defining the chessboard pieces
 ; White pawns
-(define W-PAWN1 (make-piece (make-posn (/ SQUARE-SIDE 2) (/ (* SQUARE-SIDE 13) 2)) #f W-PAWN1-IMAGE pawn-width pawn-height #t "white"))
-(define W-PAWN2 (make-piece (make-posn (/ (* SQUARE-SIDE 3) 2) (/ (* SQUARE-SIDE 13) 2)) #f W-PAWN2-IMAGE pawn-width pawn-height #t "white"))
-(define W-PAWN3 (make-piece (make-posn (/ (* SQUARE-SIDE 5) 2) (/ (* SQUARE-SIDE 13) 2)) #f W-PAWN3-IMAGE pawn-width pawn-height #t "white"))
-(define W-PAWN4 (make-piece (make-posn (/ (* SQUARE-SIDE 7) 2) (/ (* SQUARE-SIDE 13) 2)) #f W-PAWN4-IMAGE pawn-width pawn-height #t "white"))
-(define W-PAWN5 (make-piece (make-posn (/ (* SQUARE-SIDE 9) 2) (/ (* SQUARE-SIDE 13) 2)) #f W-PAWN5-IMAGE pawn-width pawn-height #t "white"))
-(define W-PAWN6 (make-piece (make-posn (/ (* SQUARE-SIDE 11) 2) (/ (* SQUARE-SIDE 13) 2)) #f W-PAWN6-IMAGE pawn-width pawn-height #t "white"))
-(define W-PAWN7 (make-piece (make-posn (/ (* SQUARE-SIDE 13) 2) (/ (* SQUARE-SIDE 13) 2)) #f W-PAWN7-IMAGE pawn-width pawn-height #t "white"))
-(define W-PAWN8 (make-piece (make-posn (/ (* SQUARE-SIDE 15) 2) (/ (* SQUARE-SIDE 13) 2)) #f W-PAWN8-IMAGE pawn-width pawn-height #t "white"))
+(define W-PAWN1 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-PAWN1-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN2 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-PAWN2-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN3 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-PAWN3-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN4 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-PAWN4-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN5 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-PAWN5-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN6 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-PAWN6-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN7 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-PAWN7-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN8 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-PAWN8-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
 
 ; White king
-(define W-KING (make-piece (make-posn (/ (* SQUARE-SIDE 9) 2) (/ (* SQUARE-SIDE 15) 2)) #f W-KING-IMAGE king-width king-height #t "white"))
+(define W-KING (make-piece "king" 
+                           KING-QUEEN-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-KING-IMAGE 
+                           king-width 
+                           king-height 
+                           #t)) ; present?
 
 ; White queen
-(define W-QUEEN (make-piece (make-posn (/ (* SQUARE-SIDE 7) 2) (/ (* SQUARE-SIDE 15) 2)) #f W-QUEEN-IMAGE queen-width queen-height #t "white"))
+(define W-QUEEN (make-piece "queen" 
+                           KING-QUEEN-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-QUEEN-IMAGE 
+                           queen-width 
+                           queen-height 
+                           #t)) ; present?
 
 ; White bishops
-(define W-BISHOP1 (make-piece (make-posn (/ (* SQUARE-SIDE 5) 2) (/ (* SQUARE-SIDE 15) 2)) #f W-BISHOP1-IMAGE bishop-width bishop-height #t "white"))
-(define W-BISHOP2 (make-piece (make-posn (/ (* SQUARE-SIDE 11) 2) (/ (* SQUARE-SIDE 15) 2)) #f W-BISHOP1-IMAGE bishop-width bishop-height #t "white"))
+(define W-BISHOP1 (make-piece "bishop" 
+                           DIAGONAL-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-BISHOP1-IMAGE 
+                           bishop-width 
+                           bishop-height 
+                           #t)) ; present?
+(define W-BISHOP2 (make-piece "bishop" 
+                           DIAGONAL-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-BISHOP1-IMAGE 
+                           bishop-width 
+                           bishop-height 
+                           #t)) ; present?
 
 ; White rooks
-(define W-ROOK1 (make-piece (make-posn (/ (* SQUARE-SIDE 15) 2) (/ (* SQUARE-SIDE 15) 2)) #f W-ROOK1-IMAGE rook-width rook-height #t "white"))
-(define W-ROOK2 (make-piece (make-posn (/ SQUARE-SIDE 2) (/ (* SQUARE-SIDE 15) 2)) #f W-ROOK2-IMAGE rook-width rook-height #t "white"))
+(define W-ROOK1 (make-piece "rook" 
+                           ROOK-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-ROOK1-IMAGE 
+                           rook-width 
+                           rook-height 
+                           #t)) ; present?
+(define W-ROOK2 (make-piece "rook" 
+                           ROOK-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-ROOK2-IMAGE 
+                           rook-width 
+                           rook-height 
+                           #t)) ; present?
 
-; White horses
-(define W-HORSE1 (make-piece (make-posn (/ (* SQUARE-SIDE 3) 2) (/ (* SQUARE-SIDE 15) 2)) #f W-HORSE1-IMAGE horse-width horse-height #t "white"))
-(define W-HORSE2 (make-piece (make-posn (/ (* SQUARE-SIDE 13) 2) (/ (* SQUARE-SIDE 15) 2)) #f W-HORSE2-IMAGE horse-width horse-height #t "white"))
+; White knights
+(define W-KNIGHT1 (make-piece "knight" 
+                           KNIGHT-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-KNIGHT1-IMAGE 
+                           knight-width 
+                           knight-height 
+                           #t)) ; present?
+(define W-KNIGHT2 (make-piece "knight" 
+                           KNIGHT-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; dragged?
+                           W-KNIGHT2-IMAGE 
+                           knight-width 
+                           knight-height 
+                           #t)) ; present?
 
 ; Black pawns
-(define B-PAWN1 (make-piece (make-posn (/ SQUARE-SIDE 2) (/ (* SQUARE-SIDE 3) 2)) #f B-PAWN1-IMAGE pawn-width pawn-height #t "black"))
-(define B-PAWN2 (make-piece (make-posn (/ (* SQUARE-SIDE 3) 2) (/ (* SQUARE-SIDE 3) 2)) #f B-PAWN2-IMAGE pawn-width pawn-height #t "black"))
-(define B-PAWN3 (make-piece (make-posn (/ (* SQUARE-SIDE 5) 2) (/ (* SQUARE-SIDE 3) 2)) #f B-PAWN3-IMAGE pawn-width pawn-height #t "black"))
-(define B-PAWN4 (make-piece (make-posn (/ (* SQUARE-SIDE 7) 2) (/ (* SQUARE-SIDE 3) 2)) #f B-PAWN4-IMAGE pawn-width pawn-height #t "black"))
-(define B-PAWN5 (make-piece (make-posn (/ (* SQUARE-SIDE 9) 2) (/ (* SQUARE-SIDE 3) 2)) #f B-PAWN5-IMAGE pawn-width pawn-height #t "black"))
-(define B-PAWN6 (make-piece (make-posn (/ (* SQUARE-SIDE 11) 2) (/ (* SQUARE-SIDE 3) 2)) #f B-PAWN6-IMAGE pawn-width pawn-height #t "black"))
-(define B-PAWN7 (make-piece (make-posn (/ (* SQUARE-SIDE 13) 2) (/ (* SQUARE-SIDE 3) 2)) #f B-PAWN7-IMAGE pawn-width pawn-height #t "black"))
-(define B-PAWN8 (make-piece (make-posn (/ (* SQUARE-SIDE 15) 2) (/ (* SQUARE-SIDE 3) 2)) #f B-PAWN8-IMAGE pawn-width pawn-height #t "black"))
+(define B-PAWN1 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-PAWN1-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN2 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-PAWN2-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN3 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-PAWN3-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN4 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-PAWN4-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN5 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-PAWN5-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN6 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-PAWN6-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN7 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-PAWN7-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN8 (make-piece "pawn" 
+                           VERTICAL-MOVES  ; Use movement list instead of single Posn
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-PAWN8-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
 
 ; Black king
-(define B-KING (make-piece (make-posn (/ (* SQUARE-SIDE 9) 2) (/ SQUARE-SIDE 2)) #f B-KING-IMAGE king-width king-height #t "black"))
+(define B-KING (make-piece "king" 
+                           KING-QUEEN-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-KING-IMAGE 
+                           king-width 
+                           king-height 
+                           #t)) ; present?
 
 ; Black queen
-(define B-QUEEN (make-piece (make-posn (/ (* SQUARE-SIDE 7) 2) (/ SQUARE-SIDE 2)) #f B-QUEEN-IMAGE queen-width queen-height #t "black"))
+(define B-QUEEN (make-piece "queen" 
+                           KING-QUEEN-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-QUEEN-IMAGE 
+                           queen-width 
+                           queen-height 
+                           #t)) ; present?
 
 ; Black bishops
-(define B-BISHOP1 (make-piece (make-posn (/ (* SQUARE-SIDE 5) 2) (/ SQUARE-SIDE 2)) #f B-BISHOP1-IMAGE bishop-width bishop-height #t "black"))
-(define B-BISHOP2 (make-piece (make-posn (/ (* SQUARE-SIDE 11) 2) (/ SQUARE-SIDE 2)) #f B-BISHOP1-IMAGE bishop-width bishop-height #t "black"))
+(define B-BISHOP1 (make-piece "bishop" 
+                           DIAGONAL-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-BISHOP1-IMAGE 
+                           bishop-width 
+                           bishop-height 
+                           #t)) ; present?
+(define B-BISHOP2 (make-piece "bishop" 
+                           DIAGONAL-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-BISHOP1-IMAGE 
+                           bishop-width 
+                           bishop-height 
+                           #t)) ; present?
 
 ; Black rooks
-(define B-ROOK1 (make-piece (make-posn (/ SQUARE-SIDE 2) (/ SQUARE-SIDE 2)) #f B-ROOK1-IMAGE rook-width rook-height #t "black"))
-(define B-ROOK2 (make-piece (make-posn (/ (* SQUARE-SIDE 15) 2) (/ SQUARE-SIDE 2)) #f B-ROOK2-IMAGE rook-width rook-height #t "black"))
+(define B-ROOK1 (make-piece "rook" 
+                           ROOK-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-ROOK1-IMAGE 
+                           rook-width 
+                           rook-height 
+                           #t)) ; present?
+(define B-ROOK2 (make-piece "rook" 
+                           ROOK-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-ROOK2-IMAGE 
+                           rook-width 
+                           rook-height 
+                           #t)) ; present?
 
-; Black horses
-(define B-HORSE1 (make-piece (make-posn (/ (* SQUARE-SIDE 3) 2) (/ SQUARE-SIDE 2)) #f B-HORSE1-IMAGE horse-width horse-height #t "black"))
-(define B-HORSE2 (make-piece (make-posn (/ (* SQUARE-SIDE 13) 2) (/ SQUARE-SIDE 2)) #f B-HORSE2-IMAGE horse-width horse-height #t "black"))
+; Black knights
+(define B-KNIGHT1 (make-piece "knight" 
+                           KNIGHT-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-KNIGHT1-IMAGE 
+                           knight-width 
+                           knight-height 
+                           #t)) ; present?
+(define B-KNIGHT2 (make-piece "knight" 
+                           KNIGHT-MOVES  ; Use movement list instead of single Posn
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; dragged?
+                           B-KNIGHT2-IMAGE 
+                           knight-width 
+                           knight-height 
+                           #t)) ; present?
 
-; Defining the initial-state
-(define INITIAL-STATE
-  (list
-   W-PAWN1
-   W-PAWN2
-   W-PAWN3
-   W-PAWN4
-   W-PAWN5
-   W-PAWN6
-   W-PAWN7
-   W-PAWN8
-   W-KING
-   W-QUEEN
-   W-BISHOP1
-   W-BISHOP2
-   W-ROOK1
-   W-ROOK2
-   W-HORSE1
-   W-HORSE2
-   B-PAWN1
-   B-PAWN2
-   B-PAWN3
-   B-PAWN4
-   B-PAWN5
-   B-PAWN6
-   B-PAWN7
-   B-PAWN8
-   B-KING
-   B-QUEEN
-   B-BISHOP1
-   B-BISHOP2
-   B-ROOK1
-   B-ROOK2
-   B-HORSE1
-   B-HORSE2))
+; Defining INITIAL-STATE
+(define INITIAL-STATE 
+  (vector
+    ; Row 0 - Black back row
+    (vector 
+      (make-piece "rook" ROOK-MOVES #t 1 "black" #f B-ROOK1-IMAGE rook-width rook-height #t)
+      (make-piece "knight" KNIGHT-MOVES #t 1 "black" #f B-KNIGHT1-IMAGE knight-width knight-height #t)
+      (make-piece "bishop" DIAGONAL-MOVES #t 1 "black" #f B-BISHOP1-IMAGE bishop-width bishop-height #t)
+      (make-piece "queen" KING-QUEEN-MOVES #t 1 "black" #f B-QUEEN-IMAGE queen-width queen-height #t)
+      (make-piece "king" KING-QUEEN-MOVES #f 1 "black" #f B-KING-IMAGE king-width king-height #t)
+      (make-piece "bishop" DIAGONAL-MOVES #t 1 "black" #f B-BISHOP2-IMAGE bishop-width bishop-height #t)
+      (make-piece "knight" KNIGHT-MOVES #t 1 "black" #f B-KNIGHT2-IMAGE knight-width knight-height #t)
+      (make-piece "rook" ROOK-MOVES #t 1 "black" #f B-ROOK2-IMAGE rook-width rook-height #t))
+    
+    ; Row 1 - Black pawns
+    (vector 
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN1-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN2-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN3-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN4-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN5-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN6-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN7-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN8-IMAGE pawn-width pawn-height #t))
+    
+    ; Rows 2-5 - Empty spaces
+    (vector 0 0 0 0 0 0 0 0)
+    (vector 0 0 0 0 0 0 0 0)
+    (vector 0 0 0 0 0 0 0 0)
+    (vector 0 0 0 0 0 0 0 0)
+    
+    ; Row 6 - White pawns
+    (vector 
+      (make-piece "pawn" VERTICAL-MOVES #t 2 "white" #f W-PAWN1-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 2 "white" #f W-PAWN2-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 2 "white" #f W-PAWN3-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 2 "white" #f W-PAWN4-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 2 "white" #f W-PAWN5-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 2 "white" #f W-PAWN6-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 2 "white" #f W-PAWN7-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 2 "white" #f W-PAWN8-IMAGE pawn-width pawn-height #t))
+    
+    ; Row 7 - White back row
+    (vector 
+      (make-piece "rook" ROOK-MOVES #t 2 "white" #f W-ROOK1-IMAGE rook-width rook-height #t)
+      (make-piece "knight" KNIGHT-MOVES #t 2 "white" #f W-KNIGHT1-IMAGE knight-width knight-height #t)
+      (make-piece "bishop" DIAGONAL-MOVES #t 2 "white" #f W-BISHOP1-IMAGE bishop-width bishop-height #t)
+      (make-piece "queen" KING-QUEEN-MOVES #t 2 "white" #f W-QUEEN-IMAGE queen-width queen-height #t)
+      (make-piece "king" KING-QUEEN-MOVES #f 2 "white" #f W-KING-IMAGE king-width king-height #t)
+      (make-piece "bishop" DIAGONAL-MOVES #t 2 "white" #f W-BISHOP2-IMAGE bishop-width bishop-height #t)
+      (make-piece "knight" KNIGHT-MOVES #t 2 "white" #f W-KNIGHT2-IMAGE knight-width knight-height #t)
+      (make-piece "rook" ROOK-MOVES #t 2 "white" #f W-ROOK2-IMAGE rook-width rook-height #t))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Functions ;;;;;;;;;;
@@ -264,7 +572,6 @@
 ;; Input/Output
 ; inside-image? : Number Number Piece -> Boolean
 ; checks if the mouse click is within the image's clickable area
-; header: (define (inside-image? Number Number Piece) #true))
 
 ;; Examples
 (check-expect (inside-image? 10 10 B-PAWN1) #f)
@@ -273,10 +580,29 @@
 
 ;; Implementation
 (define (inside-image? mouse-x mouse-y piece)
-  (and (>= mouse-x (- (posn-x (piece-position piece)) (/ (piece-width piece) 2)))
-       (<= mouse-x (+ (posn-x (piece-position piece)) (/ (piece-width piece) 2)))
-       (>= mouse-y (- (posn-y (piece-position piece)) (/ (piece-height piece) 2)))
-       (<= mouse-y (+ (posn-y (piece-position piece)) (/ (piece-height piece) 2)))))
+  (let ([piece-x (* (posn-x (piece-movement piece)) SQUARE-SIDE)]
+        [piece-y (* (posn-y (piece-movement piece)) SQUARE-SIDE)])
+    (and (>= mouse-x (- piece-x (/ (piece-width piece) 2)))
+         (<= mouse-x (+ piece-x (/ (piece-width piece) 2)))
+         (>= mouse-y (- piece-y (/ (piece-height piece) 2)))
+         (<= mouse-y (+ piece-y (/ (piece-height piece) 2))))))
+
+;;;;; highlight-piece ;;;;;
+
+; Helper function to highlight the selected piece
+(define (highlight-piece piece scene x y)
+  (let ([img (if (eq? piece selected-piece)  ; Changed from equal? to eq? and comparing whole pieces
+                 (overlay 
+                  (overlay  ; Multiple overlays to create thicker border
+                   (rectangle SQUARE-SIDE SQUARE-SIDE "outline" "red")
+                   (rectangle (- SQUARE-SIDE 1) (- SQUARE-SIDE 1) "outline" "red")
+                   (rectangle (- SQUARE-SIDE 2) (- SQUARE-SIDE 2) "outline" "red"))
+                  (piece-img piece))
+                 (piece-img piece))])
+    (place-image img
+                (+ (* x SQUARE-SIDE) (/ SQUARE-SIDE 2))
+                (+ (* y SQUARE-SIDE) (/ SQUARE-SIDE 2))
+                scene)))
 
 ;;;;; render-images ;;;;;
 
@@ -290,228 +616,60 @@
 ; renders the scene with all pieces
 ; header: (define (render pieces EMPTY-CHESSBOARD) EMPTY-CHESSBOARD)
 
-;; Constants for the Examples
-; Defining a scene with two black pawns over the chessboard
-(define B-PAWNS1-2-CHESSBOARD
-  (place-image B-PAWN1-IMAGE (/ SQUARE-SIDE 2) (/ (* SQUARE-SIDE 3) 2)
-    (place-image B-PAWN2-IMAGE (/ (* SQUARE-SIDE 3) 2) (/ (* SQUARE-SIDE 3) 2) 
-      (overlay CHESSBOARD (empty-scene (* SQUARE-SIDE 8) (* SQUARE-SIDE 8))))))
+(define (vector-to-list-of-lists vector-board)
+  (map vector->list (vector->list vector-board)))
 
-; Defining a scene with a black rook over the chessboard
-(define B-ROOK1-CHESSBOARD (place-image B-ROOK1-IMAGE (/ SQUARE-SIDE 2) (/ SQUARE-SIDE 2) (overlay CHESSBOARD (empty-scene (* SQUARE-SIDE 8) (* SQUARE-SIDE 8)))))
+; Helper function to find a piece's current position in the board
+(define (piece-current-pos target-piece)
+  (let find-pos ([row 0])
+    (if (< row 8)
+        (let find-col ([col 0])
+          (if (< col 8)
+              (let ([current-piece (vector-ref (vector-ref BOARD-VECTOR row) col)])
+                (if (eq? current-piece target-piece)
+                    (make-posn col row)
+                    (find-col (add1 col))))
+              (find-pos (add1 row))))
+        (make-posn 0 0)))) ; fallback position if piece not found
 
-; Defining a list of the two pawns
-(define B-PAWNS1-2-STATE
-  (list
-   B-PAWN1
-   B-PAWN2))
-
-; Defining a list of the rook
-(define B-ROOK1-STATE
-  (list
-   B-ROOK1))
-
-;; Examples
-(check-expect (render-pieces '()  EMPTY-CHESSBOARD) EMPTY-CHESSBOARD)
-(check-expect (render-pieces B-PAWNS1-2-STATE  EMPTY-CHESSBOARD) B-PAWNS1-2-CHESSBOARD)
-(check-expect (render-pieces B-ROOK1-STATE  EMPTY-CHESSBOARD) B-ROOK1-CHESSBOARD)
-                             
 ; Implementation
-(define (render-pieces pieces scene)
-  (cond
-    [(empty? pieces) scene] ; Base case: no pieces left
-    [else
-     (let ([first-piece (first pieces)]
-           [remaining (rest pieces)])
-       (render-pieces remaining 
-         (place-image (piece-img first-piece) 
-                      (posn-x (piece-position first-piece)) 
-                      (posn-y (piece-position first-piece)) 
-                      scene)))])) ; Recursive step
-
-;; Implementation
 (define (render state)
-  (render-pieces state (overlay CHESSBOARD (empty-scene (* SQUARE-SIDE 8) (* SQUARE-SIDE 8))))) ; Background size
-
-;;;;; handle-drag ;;;;;
-
-;; Input/Output
-; handle-drag : List<Piece> Number Number -> List<Piece>
-; updates the position of a piece that has been dragged
-; header: (define (handle-drag List<Piece> mouse-x mouse-y) INITIAL-STATE)
-
-;; Constant for Examples
-; Defining the white pawn with the new position
-(define NEW-W-PAWN1 (make-piece (make-posn 100 100) #t W-PAWN1-IMAGE pawn-width pawn-height #t "white"))
-
-; Defining the state when W-PAWN1 has 'dragged?' set to true
-(define NEW-W-PAWN1-STATE
-  (list
-   NEW-W-PAWN1
-   W-PAWN2
-   W-PAWN3
-   W-PAWN4
-   W-PAWN5
-   W-PAWN6
-   W-PAWN7
-   W-PAWN8
-   W-KING
-   W-QUEEN
-   W-BISHOP1
-   W-BISHOP2
-   W-ROOK1
-   W-ROOK2
-   W-HORSE1
-   W-HORSE2
-   B-PAWN1
-   B-PAWN2
-   B-PAWN3
-   B-PAWN4
-   B-PAWN5
-   B-PAWN6
-   B-PAWN7
-   B-PAWN8
-   B-KING
-   B-QUEEN
-   B-BISHOP1
-   B-BISHOP2
-   B-ROOK1
-   B-ROOK2
-   B-HORSE1
-   B-HORSE2))
-
-;; Examples
-(check-expect (handle-drag W-PAWN1-D-STATE 100 100) NEW-W-PAWN1-STATE)
-
-;; Implementation
-(define (handle-drag pieces mouse-x mouse-y)
-  (map
-   (lambda (piece)
-     (if (and (piece-dragged? piece) (piece-present? piece))
-         ;; Update the position of the dragged piece
-         (make-piece (make-posn mouse-x mouse-y)
-                     (piece-dragged? piece)
-                     (piece-img piece)
-                     (piece-width piece)
-                     (piece-height piece)
-                     (piece-present? piece)
-                     (piece-color piece))
-         ;; Leave other pieces unchanged
-         piece))
-   pieces))
+  (let ([scene EMPTY-CHESSBOARD])
+    ; First, draw dots for valid moves if a piece is selected
+    (let ([scene 
+           (if selected-piece
+               (let ([valid-moves (get-valid-moves selected-piece selected-pos state)])
+                 (foldl (lambda (move scene)
+                         (place-image (circle 8 "solid" "gray")
+                                    (+ (* (posn-x move) SQUARE-SIDE) (/ SQUARE-SIDE 2))
+                                    (+ (* (posn-y move) SQUARE-SIDE) (/ SQUARE-SIDE 2))
+                                    scene))
+                       scene
+                       valid-moves))
+               scene)])
+      ; Then draw all pieces
+      (foldl (lambda (row-idx scene)
+               (foldl (lambda (col-idx scene)
+                        (let ([piece (vector-ref (vector-ref state row-idx) col-idx)])
+                          (if (and (piece? piece) (piece-present? piece))
+                              (highlight-piece piece scene col-idx row-idx)
+                              scene)))
+                      scene
+                      (build-list 8 values)))
+             scene
+             (build-list 8 values)))))
 
 ;;;;; which-square? ;;;;;
 
 ;; Input/Output
-; which-square? : Piece -> Posn
-; returns the row and the column as a posn
+; which-square? : Number Number -> Posn
+; Converts mouse coordinates to board position
 ; header: (define (which-square? Piece) (make-posn 1 1))
 
-;; Examples
-(check-expect (which-square? B-PAWN1) (make-posn 0 1))
-(check-expect (which-square? B-ROOK2) (make-posn 7 0))
-
-(define (which-square? piece)
-  (cond
-   [(and (>= (posn-x (piece-position piece)) 0)
-         (<= (posn-x (piece-position piece)) (* 8 SQUARE-SIDE))
-         (>= (posn-y (piece-position piece)) 0)
-         (<= (posn-y (piece-position piece)) (* 8 SQUARE-SIDE)))
-    (let ([col (floor (/ (posn-x (piece-position piece)) SQUARE-SIDE))]
-          [row (floor (/ (posn-y (piece-position piece)) SQUARE-SIDE))])
-       (make-posn col row))] ; Return the row and column as a posn
-   [else (error "The position isn't between 0 and the maximum value of the chessboard")]))
-
-;;;;; put-piece ;;;;;
-
-;; Input/Output
-; put-piece : Piece List<Piece> -> List<Piece>
-; places the dragged piece in the center of the square
-; where it is located
-; header: (define (put-piece Piece List<Piece>) INITIAL-STATE)
-
-;; Constants for Examples
-(define NEW-B-PAWN1 (make-piece (make-posn 190 234) #f B-PAWN1-IMAGE pawn-width pawn-height #t "black"))
-
-;; Examples
-(check-expect (put-piece B-PAWN1 INITIAL-STATE) INITIAL-STATE)
-(check-expect (put-piece B-KING INITIAL-STATE) INITIAL-STATE)
-(check-expect (put-piece NEW-B-PAWN1 INITIAL-STATE) INITIAL-STATE)
-
 ;; Implementation
-(define (put-piece piece pieces)
-  (let ([center-x (+ (* (posn-x (which-square? piece)) SQUARE-SIDE) (/ SQUARE-SIDE 2))]
-        [center-y (+ (* (posn-y (which-square? piece)) SQUARE-SIDE) (/ SQUARE-SIDE 2))])
-    (if (and (piece-dragged? piece) ; If this piece is being dragged
-             (not (false? (piece-present? piece))))
-        (cons (make-piece (make-posn center-x center-y) (piece-dragged? piece) (piece-img piece) (piece-width piece) (piece-height piece) (piece-present? piece) (piece-color piece))
-                   pieces)
-        pieces)))
-
-;;;;; same-square? ;;;;;
-
-;; Input/Output
-; same-square? : Piece List<Piece> -> Boolean
-; says if two pieces are in the same square
-; header: (define (same-square? Piece List<Piece>) #false)
-
-;; Constants for Examples
-; Defining the white horse with the new position (100 100)
-(define NEW-W-HORSE1 (make-piece (make-posn 100 100) #f W-HORSE1-IMAGE horse-width horse-height #t "white"))
-
-; Defining the white horse with the new position (100 100)
-(define NEW-W-HORSE2 (make-piece (make-posn 100 100) #f W-HORSE2-IMAGE horse-width horse-height #t "white"))
-
-; Defining the state when W-HORSE1 and W-HORSE2 are in the same square
-(define NEW-W-HORSE1-2-STATE
-  (list
-   W-PAWN1
-   W-PAWN2
-   W-PAWN3
-   W-PAWN4
-   W-PAWN5
-   W-PAWN6
-   W-PAWN7
-   W-PAWN8
-   W-KING
-   W-QUEEN
-   W-BISHOP1
-   W-BISHOP2
-   W-ROOK1
-   W-ROOK2
-   NEW-W-HORSE1
-   NEW-W-HORSE2
-   B-PAWN1
-   B-PAWN2
-   B-PAWN3
-   B-PAWN4
-   B-PAWN5
-   B-PAWN6
-   B-PAWN7
-   B-PAWN8
-   B-KING
-   B-QUEEN
-   B-BISHOP1
-   B-BISHOP2
-   B-ROOK1
-   B-ROOK2
-   B-HORSE1
-   B-HORSE2))
-
-;; Examples
-(check-expect (same-square? B-PAWN1 INITIAL-STATE) #false)
-(check-expect (same-square? NEW-W-HORSE1 NEW-W-HORSE1-2-STATE) #true)
-
-;; Implementation
-(define (same-square? dragged-piece pieces)
-  (if (list? pieces) ; Ensure the input is a list
-      (ormap
-       (lambda (piece)
-         (and (piece-present? piece)
-              (not (equal? dragged-piece piece))
-              (equal? (which-square? piece) (which-square? dragged-piece))))
-       pieces)
-      (error "same-square?: expected a list of pieces, got" pieces))) ; Raise an error for invalid input
+(define (which-square? x y)
+  (make-posn (floor (/ x SQUARE-SIDE))
+             (floor (/ y SQUARE-SIDE))))
 
 ;;;;; same-color? ;;;;;
 
@@ -519,11 +677,6 @@
 ; same-color? : Piece Piece -> Boolean
 ; says if two pieces have the same color
 ; header: (define (same-color? dragged-piece pieces) #true)
-
-;; Examples
-(check-expect (same-color? B-PAWN1 B-ROOK1) #true)
-(check-expect (same-color? W-PAWN1 W-ROOK1) #true)
-(check-expect (same-color? W-PAWN1 B-ROOK1) #false)
 
 ;; Implementation
 (define (same-color? dragged-piece piece)
@@ -538,249 +691,189 @@
 ; makes a piece with 'present?' sets to #false transparent
 ; header: (define (make-trasnparent eaten-piece) B-PAWN1)
 
-; Constants for Examples
-(define TRANSPARENT-W-HORSE1 (make-piece (make-posn 100 100) #f (rectangle 0 0 "solid" "transparent") horse-width horse-height #f "white"))
-
-;; Examples
-(check-expect (make-transparent B-PAWN1) B-PAWN1)
-(check-expect (make-transparent NOT-PRESENT-W-HORSE1) TRANSPARENT-W-HORSE1)
-
 ;; Implementation
 (define (make-transparent piece)
   (if (false? (piece-present? piece))
-      (make-piece (piece-position piece)
+      (make-piece (piece-type piece)
+                  (piece-movement piece)
+                  (piece-repeatable? piece)
+                  (piece-player piece)
+                  (piece-color piece)
                   (piece-dragged? piece)
                   (rectangle 0 0 "solid" "transparent")
                   (piece-width piece)
                   (piece-height piece)
-                  (piece-present? piece)
-                  (piece-color piece))
+                  (piece-present? piece))
       piece)) ; Return unchanged if present? is true
 
-;;;;; eaten-piece ;;;;;
-
-;; Input/Output
-; eaten-piece : Piece List<Piece> -> List<Piece>
-; checks if a piece has been eaten and creates a list with
-; the piece that has present? sets to false
-; header: (define (eaten-piece dragged-piece pieces) INITIAL-STATE)
-
-;; Constants for Examples
-; Defining the black horse with the new position (100 100)
-(define NEW-B-HORSE1 (make-piece (make-posn 100 100) #f B-HORSE1-IMAGE horse-width horse-height #t "black"))
-
-; Defining the white horse that has 'present?' set to #false
-(define NOT-PRESENT-W-HORSE1 (make-piece (make-posn 100 100) #f W-HORSE1-IMAGE horse-width horse-height #f "white"))
-
-; Defining the state when W-HORSE1 and W-HORSE2 are in the same square
-(define NEW-W-HORSE1-STATE
-  (list
-   W-PAWN1
-   W-PAWN2
-   W-PAWN3
-   W-PAWN4
-   W-PAWN5
-   W-PAWN6
-   W-PAWN7
-   W-PAWN8
-   W-KING
-   W-QUEEN
-   W-BISHOP1
-   W-BISHOP2
-   W-ROOK1
-   W-ROOK2
-   NEW-W-HORSE1
-   W-HORSE2
-   B-PAWN1
-   B-PAWN2
-   B-PAWN3
-   B-PAWN4
-   B-PAWN5
-   B-PAWN6
-   B-PAWN7
-   B-PAWN8
-   B-KING
-   B-QUEEN
-   B-BISHOP1
-   B-BISHOP2
-   B-ROOK1
-   B-ROOK2
-   B-HORSE2))
-
-; Defining the state when W-HORSE1 and W-HORSE2 are in the same square
-(define W-HORSE1-EATEN-STATE
-  (list
-   NEW-B-HORSE1
-   W-PAWN1
-   W-PAWN2
-   W-PAWN3
-   W-PAWN4
-   W-PAWN5
-   W-PAWN6
-   W-PAWN7
-   W-PAWN8
-   W-KING
-   W-QUEEN
-   W-BISHOP1
-   W-BISHOP2
-   W-ROOK1
-   W-ROOK2
-   (make-transparent NOT-PRESENT-W-HORSE1)
-   W-HORSE2
-   B-PAWN1
-   B-PAWN2
-   B-PAWN3
-   B-PAWN4
-   B-PAWN5
-   B-PAWN6
-   B-PAWN7
-   B-PAWN8
-   B-KING
-   B-QUEEN
-   B-BISHOP1
-   B-BISHOP2
-   B-ROOK1
-   B-ROOK2
-   B-HORSE2))
-
-;; Examples
-(check-expect (eaten-piece NEW-B-HORSE1 NEW-W-HORSE1-STATE) W-HORSE1-EATEN-STATE)
-
 ;; Implementation
-(define (eaten-piece dragged-piece pieces)
-  (cons
-   ;; Include the dragged piece with its updated attributes
-   (make-piece (piece-position dragged-piece)  ; Use the dragged piece's position
-               (piece-dragged? dragged-piece)     ; Keep its dragged status
-               (piece-img dragged-piece)          ; Keep its image
-               (piece-width dragged-piece)        ; Keep its dimensions
-               (piece-height dragged-piece)
-               (piece-present? dragged-piece)     ; Keep its 'present?' status
-               (piece-color dragged-piece))       ; Keep its color
-   ;; Process the remaining pieces
-   (map
-    (lambda (piece)
-      (if (and (piece-present? piece)               ; The piece is currently present
-               (not (equal? dragged-piece piece))   ; It's not the dragged piece itself
-               (same-square? dragged-piece (list piece)) ; Check against the current piece only
-               (not (same-color? dragged-piece piece))) ; Ensure opposing colors
-          (make-transparent (make-piece (piece-position piece)     ; Modify the piece to set 'present?' to #f
-                            (piece-dragged? piece)
-                            (piece-img piece)
-                            (piece-width piece)
-                            (piece-height piece)
-                            #f                            ; Set 'present?' to #f
-                            (piece-color piece)))
-                            piece))                     ; Otherwise, return the unmodified piece
-          pieces)))
+(define (eaten-piece current-pos target-pos)
+  (let ([target-piece (get-piece target-pos)])
+    (when (and target-piece 
+               (piece? target-piece)
+               (not (equal? (piece-color (get-piece current-pos))
+                          (piece-color target-piece))))
+      (move-piece current-pos target-pos))))
 
 ;;;;; Handle mouse events ;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;;; handle-button-down ;;;;;
+(define selected-piece #f)
 
-;; Input/Output
-; handle-button-down : List<Piece> Number Number -> List<Piece>
-; determines whether a mouse click interacts with any of the pieces,
-; and if so, modifies the drag-state to #t
-; header: (define (handle-button-down List<Piece> mouse-x mouse-y) INITIAL-STATE)
+(define selected-pos #f)  ; Add this to track the original position
 
-;; Constants for Examples
-; Defining the white pawn 1 with 'dragged?' set to true
-(define W-PAWN1-D (make-piece (make-posn (/ SQUARE-SIDE 2) (/ (* SQUARE-SIDE 13) 2)) #t W-PAWN1-IMAGE pawn-width pawn-height #t "white"))
+;;;;; handle-move ;;;;;
+; Add a new function to handle moving the selected piece
 
-; Defining the state when W-PAWN1 has 'dragged?' set to true
-(define W-PAWN1-D-STATE
-  (list
-   W-PAWN1-D ; D stands for dragged
-   W-PAWN2
-   W-PAWN3
-   W-PAWN4
-   W-PAWN5
-   W-PAWN6
-   W-PAWN7
-   W-PAWN8
-   W-KING
-   W-QUEEN
-   W-BISHOP1
-   W-BISHOP2
-   W-ROOK1
-   W-ROOK2
-   W-HORSE1
-   W-HORSE2
-   B-PAWN1
-   B-PAWN2
-   B-PAWN3
-   B-PAWN4
-   B-PAWN5
-   B-PAWN6
-   B-PAWN7
-   B-PAWN8
-   B-KING
-   B-QUEEN
-   B-BISHOP1
-   B-BISHOP2
-   B-ROOK1
-   B-ROOK2
-   B-HORSE1
-   B-HORSE2))
+(define (handle-move state target-pos)
+  (let* ([target-row (posn-y target-pos)]
+         [target-col (posn-x target-pos)]
+         [target-piece (vector-ref (vector-ref state target-row) target-col)]
+         [orig-row (posn-y selected-pos)]
+         [orig-col (posn-x selected-pos)]
+         [valid-moves (get-valid-moves selected-piece selected-pos state)])
+    (if (and (piece? selected-piece)
+             (member target-pos valid-moves)
+             (or (not (piece? target-piece))
+                 (not (same-color? selected-piece target-piece))))
+        (begin
+          ; Clear original position
+          (vector-set! (vector-ref state orig-row) orig-col 0)
+          ; Move piece to new position, preserving all properties
+          (vector-set! (vector-ref state target-row) target-col 
+                      (make-piece (piece-type selected-piece)
+                                (piece-movement selected-piece)
+                                (piece-repeatable? selected-piece)
+                                (piece-player selected-piece)
+                                (piece-color selected-piece)
+                                #f  ; reset dragged state
+                                (piece-img selected-piece)
+                                (piece-width selected-piece)
+                                (piece-height selected-piece)
+                                #t))  ; piece is present
+          state)
+        state)))
 
-;; Examples
-(check-expect (handle-button-down INITIAL-STATE (/ SQUARE-SIDE 2) (/ (* SQUARE-SIDE 13) 2)) W-PAWN1-D-STATE) 
+;;;;; get-valid-moves ;;;;;
 
-;; Implementation
-(define (handle-button-down pieces mouse-x mouse-y)
-  (map
-   (lambda (piece)
-     (if (and (inside-image? mouse-x mouse-y piece) (piece-present? piece))
-         ;; Marks this piece as draggable
-         (make-piece (piece-position piece)
-                     #t  ; Sets 'dragged?' to true
-                     (piece-img piece)
-                     (piece-width piece)
-                     (piece-height piece)
-                     (piece-present? piece)
-                     (piece-color piece))
-         ;; Leaves other pieces unchanged
-         piece))
-   pieces))
+(define (get-valid-moves piece pos state)
+  (let ([moves
+         (cond
+           [(equal? (piece-type piece) "pawn")
+            (let* ([row (posn-y pos)]
+                   [col (posn-x pos)]
+                   [direction (if (equal? (piece-color piece) "white") -1 1)]
+                   [basic-moves 
+                    (if (or (and (equal? (piece-color piece) "white") (= row 6))
+                           (and (equal? (piece-color piece) "black") (= row 1)))
+                        ; Starting position - can move one or two squares
+                        (list (make-posn col (+ row direction))
+                              (make-posn col (+ row (* 2 direction))))
+                        ; Regular position - can move one square
+                        (list (make-posn col (+ row direction))))])
+              (filter (lambda (move)
+                        (and (in-bounds? move)
+                             (not (is-there-piece? move))))
+                      basic-moves))]
+           [(equal? (piece-type piece) "king")
+            (let ([basic-moves
+                   (map (lambda (dir) 
+                         (make-posn (+ (posn-x pos) (posn-x dir))
+                                  (+ (posn-y pos) (posn-y dir))))
+                        KING-QUEEN-MOVES)])
+              (filter (lambda (move)
+                        (and (in-bounds? move)
+                             (or (not (is-there-piece? move))
+                                 (is-there-opponent-piece? move))))
+                      basic-moves))]
+           [(equal? (piece-type piece) "knight")
+            (let ([basic-moves
+                   (map (lambda (dir) 
+                         (make-posn (+ (posn-x pos) (posn-x dir))
+                                  (+ (posn-y pos) (posn-y dir))))
+                        KNIGHT-MOVES)])
+              (filter (lambda (move)
+                        (and (in-bounds? move)
+                             (or (not (is-there-piece? move))
+                                 (is-there-opponent-piece? move))))
+                      basic-moves))]
+           [(equal? (piece-type piece) "bishop")
+            (calculate-blocked-moves pos DIAGONAL-MOVES (piece-repeatable? piece) state)]
+           [(equal? (piece-type piece) "rook")
+            (calculate-blocked-moves pos ROOK-MOVES (piece-repeatable? piece) state)]
+           [(equal? (piece-type piece) "queen")
+            (calculate-blocked-moves pos KING-QUEEN-MOVES (piece-repeatable? piece) state)]
+           [else '()])])
+    (filter in-bounds? moves)))
 
-;;;;; handle-button-up ;;;;;
+; calculate-blocked-moves : Posn List<Posn> Boolean State -> List<Posn>
+; calculates moves for pieces that can be blocked by other pieces
 
-;; Input/Output
-; handle-button-up: List<Piece> : List<Piece>
-; snaps a dragged piece to the center of the nearest square
-; upon releasing the mouse button, updates the board, and
-; handles any pieces eaten by the dragged piece
-; header: (define (handle-button-up pieces) INITIAL-STATE)
-
-;; Implementation
-(define (handle-button-up pieces)
-  (let* ([dragged-pieces (filter (lambda (piece) (piece-dragged? piece)) pieces)]
-         [dragged-piece (if (empty? dragged-pieces) 
-                            #f 
-                            (first dragged-pieces))])
-    (if (false? dragged-piece)
-        pieces ; No dragged piece, return unchanged pieces
-        (map (lambda (piece)
-               (if (piece-dragged? piece) ; If this is the dragged piece
-                   (let* ([square (which-square? piece)]
-                          [col (posn-x square)]
-                          [row (posn-y square)]
-                          [center-x (+ (* col SQUARE-SIDE) (/ SQUARE-SIDE 2))]
-                          [center-y (+ (* row SQUARE-SIDE) (/ SQUARE-SIDE 2))])
-                     (make-piece (make-posn center-x center-y) #f (piece-img piece) (piece-width piece) (piece-height piece) #t (piece-color piece))) ; Snap to square center
-                   piece)) ; Keeps other pieces unchanged
-             (eaten-piece dragged-piece pieces)))))
+(define (calculate-blocked-moves pos directions repeatable? state)
+  (apply append
+         (map (lambda (dir)
+                (let loop ([current-pos pos] 
+                          [moves '()])
+                  (let* ([next-x (+ (posn-x current-pos) (posn-x dir))]
+                         [next-y (+ (posn-y current-pos) (posn-y dir))]
+                         [next-pos (make-posn next-x next-y)])
+                    (cond
+                      ; Out of bounds
+                      [(not (in-bounds? next-pos))
+                       moves]
+                      ; Hit our own piece
+                      [(let ([piece-at-pos (vector-ref (vector-ref state next-y) next-x)])
+                         (and (piece? piece-at-pos)
+                              (equal? (piece-color piece-at-pos)
+                                     (piece-color (vector-ref (vector-ref state (posn-y pos)) (posn-x pos))))))
+                       moves]
+                      ; Hit opponent's piece
+                      [(piece? (vector-ref (vector-ref state next-y) next-x))
+                       (cons next-pos moves)]
+                      ; Empty square and can continue
+                      [repeatable?
+                       (loop next-pos (cons next-pos moves))]
+                      ; Empty square but can't continue
+                      [else
+                       (cons next-pos moves)]))))
+              directions)))
 
 ;;;;; handle-mouse ;;;;;
+
+; handle-mouse : State Number Number String -> State
 
 ;; Implmentation
 (define (handle-mouse state x y event)
   (cond
-    [(equal? event "button-down") (handle-button-down state x y)]
-    [(equal? event "drag") (handle-drag state x y)]
-    [(equal? event "button-up") (handle-button-up state)]
+    [(equal? event "button-down")
+     (let* ([clicked-pos (which-square? x y)]
+            [row (posn-y clicked-pos)]
+            [col (posn-x clicked-pos)]
+            [clicked-piece (vector-ref (vector-ref state row) col)])
+       (cond
+         ; If we have a selected piece and clicked on a valid move position
+         [(and selected-piece 
+               (member clicked-pos (get-valid-moves selected-piece selected-pos state)))
+          (begin
+            (handle-move state clicked-pos)
+            (set! selected-piece #f)
+            (set! selected-pos #f)
+            state)]
+         ; If we clicked on our own piece, select it
+         [(and (piece? clicked-piece) 
+               (piece-present? clicked-piece)
+               (or (not selected-piece)  ; Either no piece is selected
+                   (equal? (piece-color clicked-piece) (piece-color selected-piece))))  ; Or it's our color
+          (begin
+            (set! selected-piece clicked-piece)
+            (set! selected-pos clicked-pos)
+            state)]
+         ; If we clicked elsewhere, deselect
+         [else
+          (begin
+            (set! selected-piece #f)
+            (set! selected-pos #f)
+            state)]))]
     [else state]))
 
 ; Run the program
