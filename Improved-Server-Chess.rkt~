@@ -252,7 +252,7 @@
 ;  (cond
 ;    [... black-connection ... (... close-input-port ...)])
 ;  (cond
-;    [... black-connection ... (... close-output-port ...)])
+;    [... blac-connection ... (... close-output-port ...)])
 ;  (cond
 ;    [... listener ... (... tcp-close ...)]))
 
