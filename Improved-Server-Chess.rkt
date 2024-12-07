@@ -71,10 +71,13 @@
 ;; Template
 
 ; (define (connection-management server-input server-output color)
+;    (... color ... server-output ...)
 ;    (... server-input ... server-output ... color ...))
 
 (define (connection-management server-input server-output color)
     (displayln (string-append color " is connected")) ; `displayln`: "White is connected" or "Black is connected"
+  (write color server-output) ; sends player's color to the client
+  (flush-output server-output)
     (make-connection server-input server-output color))
 
 ;; Examples
