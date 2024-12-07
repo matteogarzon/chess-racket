@@ -13,9 +13,6 @@
 (require 2htdp/universe)
 (require racket/base)
 (require "logic-p1.rkt")
-(provide INITIAL-STATE)
-(provide handle-mouse)
-(provide render)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Data type ;;;;;;;;;;

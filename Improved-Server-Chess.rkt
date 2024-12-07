@@ -319,7 +319,7 @@
 ; allows to play as many games as wanted
 ; header: (define (multiple-games listener) void)
 
-;; Template
+;; Template VA CAMBIATO
 
 ; (define (multiple-games listener)
 ;  (... game-management ...)
@@ -327,21 +327,37 @@
 ;      [... string=? ...]
 ;  [else ... close-connection ...]
 ;  (... multiple-games ...)))
-
+;;;;;;;!!!!!!!! DA SISTEMARE !!!!!!!!!!!!;;;;;;;;;;
 (define (multiple-games listener)
+  (local ; random-color: -> Color
+    ((define (random-color)
+       (cond
+         [(= (random 2) 0) "Black"] ; randomly generates 0 or 1
+                                    ; if it's 0, the player is black
+         [else "White"])) ; otherwise, it's white
+     ; opposite-color: String -> String
+     (define (opposite-color color)
+       (cond
+         [(string=? color "Black") "White"]
+         [else "Black"])))
   (displayln "Waiting for the players to connect")
-  (let* ((black-connection (player-connection listener "Black"))
-         (white-connection (player-connection listener "White")))
+  (let* ((first-color (random-color))
+         (second-color (opposite-color first-color))
+         (first-connection (player-connection listener first-color))
+         (second-connection (player-connection listener second-color)))
     (displayln "Both players connected")
-    (game-management white-connection black-connection)
+    (cond
+      [(string=? first-color "White")
+       (game-management first-connection second-connection)]
+      [else (game-management second-connection first-connection)])
     (displayln "Game ended. Do you want to play again? (yes/no)")
     (let ((answer (read-line))) ; `read-line`: built-in function that reads what the player writes
       (cond
         [(string=? answer "yes")
-         (game-management white-connection black-connection)
+         (game-management first-connection second-connection)
          (multiple-games listener)]
-    [else (close-connection white-connection black-connection listener)
-    (multiple-games listener)]))))
+    [else (close-connection first-connection second-connection listener)
+    (multiple-games listener)])))))
 
 ;; STARTING THE SERVER ;;
 

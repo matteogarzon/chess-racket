@@ -3,8 +3,9 @@
 #reader(lib "htdp-advanced-reader.ss" "lang")((modname Client-Chess) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
 (require racket/tcp)
 (require racket/base)
-(require "logic.rkt")
 (provide start-client)
+(require "MAIN-P1.rkt")
+(require "MAIn-P2.rkt")
 
 ;;;;;;;;; CODE FOR THE CLIENT ;;;;;;;;;;;
 
@@ -74,9 +75,7 @@
         (lambda (exception)
           (displayln "Unable to send the move"))))
   (begin
-  (write (list (posn-x (first move)) (posn-y (first move))
-               (posn-x (second move)) (posn-y (second move))) ; sends the move
-         server-input)
+  (write move server-input)  ; sends the move
   (flush-output server-input))))
 
 ;; RECEIVING MOVES FROM THE SERVER ;;
@@ -134,9 +133,57 @@
   (cond
     [server-input (close-output-port server-input)]))
 
-;;;;!!!!! WILL HAVE TO DEFINE FUNCTION FOR PLAYING MULTIPLE GAMES !!!!!!!!;;;;;;;;
+;; GAMES HANDLING ;;
 
-;; STARTING THE CLIENT ;; NOT DEFINITIVE
+;; handle-game: Port Port -> void
+; handles the games
+; header: (define (handle-game server-output server-input) void)
+
+;; Template
+
+; (define (handle-game server-output server-input)
+;  (cond
+;    [equal?
+;          ... big-bang ...]
+;    [else ... big-bang ...])
+;  (cond
+;    [string=?
+;     (... server-input ...)
+;     (... handle-game ...)]
+;    [else
+;     (... server-input ...)
+;     (... disconnect-client ...)]))
+
+(define (handle-game server-output server-input)
+  (let ((color (read server-output))) ; receives the player's color from the server,
+                                      ; the first to connect is the black, the second is the white
+    (displayln (string-append "Playing as " color))
+    (cond
+      ; Black player
+      [(equal? color "Black")
+       (big-bang INITIAL-STATE
+         (name "Chess - Black")
+         (on-mouse handle-mouse)
+         (to-draw render))]
+      ; White player
+      [else
+       (big-bang INITIAL-STATE
+         (name "Chess - White")
+         (on-mouse handle-mouse)
+         (to-draw render))])
+    (displayln "Game ended. Do you want to play again? (yes/no)")
+    (let ((answer (read-line)))
+      (cond
+        [(string=? answer "yes")
+         (write 'continue server-input)
+         (flush-output server-input)
+         (handle-game server-output server-input)]
+        [else
+         (write 'quit server-input)
+         (flush-output server-input)
+         (disconnect-client server-output server-input)]))))
+
+;; STARTING THE CLIENT
 
 ;; start-client: String Number -> Number Number
 ; starts the client and connects to the server
@@ -150,5 +197,3 @@
  (define (start-client host port)
    (let-values (((input output) (connect-to-server host port))) ; connects to the server
   (values input output))) ; outputs the two values of the input and output ports
-
-; (define-values (input1 output1) (start-client SERVER-HOST SERVER-PORT))
