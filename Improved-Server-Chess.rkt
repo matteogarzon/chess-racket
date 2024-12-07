@@ -4,7 +4,7 @@
 (require racket/tcp)
 (require racket/base)
 (require "logic.rkt")
-(require racket/udp)
+(require net/dns)
 
 ;;;;;;;;;; CODE FOR THE SERVER ;;;;;;;;;;;;;
 
@@ -53,23 +53,14 @@
 
 ; (define (obtain-ip)
 ;  (... with-handlers ...
-;       (begin
-;         (... udp-connect! ...)
-;         (... udp-close ...))))
+;       (... dns-get-address ...)))
 
 (define (obtain-ip)
-  (let ((socket (udp-open-socket))) ; `udp-open-socket`: returns a socket that connects and sends data
-  (with-handlers ((exn:fail:network? (lambda (exception) "127.0.0.1")))  ; `with-handlers`: built-in function for handling exceptions, that in this case are network errors
-                                                                         ; `exn:fail:network?`: checks if an exception is related to the network
-                                                                         ; if so, it returns the localhost (127.0.0.1)
-    (begin
-      (udp-connect! socket "8.8.8.8" 53) ; `udp-connect!`: connects the socket to the ip address and the port
-                                                     ; 8.8.8.8 and 53: ip address and port used by DNS, specificaly 8.8.8.8 refers to Google's DNS and it allows us to obtain the IP address of the computer
-      (let-values (((local-ip local-port remote-ip remote-port) (udp-addresses socket #true))) ; `udp-addresses`: with #true, it returns the address and the port of the local machine,
-                                                                                                          ; and the address and the port of the remote machine
-                                                                                                          ; if the port is closed, it raises `exn:fail:network`
-        (udp-close socket) ; `udp-close`: closes the socket
-        local-ip)))))
+  (with-handlers
+      ((exn:fail:network?
+        (lambda (exception)
+          "127.0.0.1"))) ; if there's a network error, it returns the IP address for localhost
+    (dns-get-address (dns-get-name) #:ipv6? #false))) ; otherwise, it uses `dns-get-address` to obtain the IP
 
 ;; CONNECTION MANAGEMENT ;;
 
