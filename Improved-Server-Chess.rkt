@@ -4,7 +4,7 @@
 (require racket/tcp)
 (require racket/base)
 (require "logic.rkt")
-(require net/dns)
+(require racket/udp)
 
 ;;;;;;;;;; CODE FOR THE SERVER ;;;;;;;;;;;;;
 
@@ -53,14 +53,25 @@
 
 ; (define (obtain-ip)
 ;  (... with-handlers ...
-;       (... dns-get-address ...)))
+;       (begin
+;         (... udp-connect! ...)
+;         (... udp-close ...))))
 
 (define (obtain-ip)
-  (with-handlers
-      ((exn:fail:network?
-        (lambda (exception)
-          "127.0.0.1"))) ; if there's a network error, it returns the IP address for localhost
-    (dns-get-address (dns-get-name) #:ipv6? #false))) ; otherwise, it uses `dns-get-address` to obtain the IP
+  (let ((socket (udp-open-socket))) ; `udp-open-socket`: returns a socket that connects and sends data
+    (with-handlers ; `with-handlers`: built-in function for handling exceptions, that in this case are network errors
+        ((exn:fail:network? ; `exn:fail:network?`: checks if an exception is related to the network
+          (lambda (exception)
+            "127.0.0.1"))) ; if so, it returns the localhost (127.0.0.1)
+      (begin
+        (udp-connect! socket "8.8.8.8" 53) ; `udp-connect!`: connects the socket to the ip address and the port
+                                           ; 8.8.8.8 and 53: IP address and port used by DNS, specifically 8.8.8.8 referers to Google's DNS
+                                           ; and it allows us to obtain the IP address of the computer
+        (let-values (((local-ip local-port remote-ip remote-port) (udp-addresses socket #true))) ; `udp-addresses`: with #true, it returns the address and the port of the local machine
+                                                                                                 ; and the address and the port of the remote machine,
+                                                                                                 ; if the port is closed, it raises `exn:fail:network`
+          (udp-close socket) ; `udp-close`: closes the socket
+          local-ip)))))
 
 ;; CONNECTION MANAGEMENT ;;
 
@@ -339,35 +350,42 @@
 ;; STARTING THE SERVER ;;
 
 ;; start-server: -> void
-; starts the server, manages players' connection and terminates the server
+; starts the server and manages players' connection
 ; header: (define (start-server) void)
 
 ;; Template
 
 ; (define (start-server)
 ;  (... with-handlers ...)
-;  (... listener ...)
-;  (... obtain-ip ...)
-;  (cond
-;    [... read-line ...]
-;    [else ...]))
-    
+;  (thread
+;   (local
+;     (cond
+;       [... read-line ...]
+;       [else ...])
+;     (... multiple-games ...))))
 
 (define (start-server)
   (with-handlers
       ((exn:fail:network?
         (lambda (exception)
           (displayln "Port already in use")
-          (exit)))) ; if the port is already in use, the player can't join
-    (let ((listener (tcp-listen 1234 2 #true)) ; `tcp-listen`: the server waits for connections at the specified port number (1234),
-                                               ; it allows to wait to maximum 2 players
-                                               ; and allows the port to be reused immediately after the server terminated
+          (exit)))) ; if the port is already in use, the program gets closed
+    (let ((listener (tcp-listen 1234 2 #true)) ; the `listener` waits for connections on port 1234,
+                                               ; allowing maximum 2 players to try to connect
+                                               ; and allowing reuse of the port right after the server terminated
           (ip-address (obtain-ip)))
       (displayln (string-append "Server started on IP address " ip-address " and Port 1234"))
-      (displayln "Press 'q' and Enter to terminate the server")
-      (cond
-        [(equal? (read-line) "q")
-         (displayln "Terminating the server")]
-      [else (multiple-games listener)]))))
+      (displayln "Digit 'q' and press Enter to terminate the server")
+      (thread ; monitors in parallel to the rest of the function if the player wants to quit
+       (local ; player-quit: -> void
+         ((define (player-quit)
+         (cond
+           [(equal? (read-line) "q")
+            (displayln "Terminating the server")
+            (tcp-close listener) ; if the player wants to quit, the server is closed and
+            (exit)] ; the program gets closed
+         [else (player-quit)]))) ; otherwise, it keeps monitoring if the player wants to quit
+         player-quit)) ; gives the function for the `thread`
+    (multiple-games listener))))
 
 (start-server)
