@@ -12,7 +12,7 @@
 (require 2htdp/image)
 (require 2htdp/universe)
 (require racket/base)
-(require "logic-p2.rkt")
+(require "logic.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Data type ;;;;;;;;;;
@@ -903,17 +903,17 @@
         (begin
           ; Check for castling
           (if (and (equal? (piece-type selected-piece) "king")
-                   (not (piece-dragged? selected-piece)) ; King has not moved
-                   (or (and (= target-col (+ orig-col 2)) ; Castling right
+                   (not (piece-dragged? selected-piece))
+                   (or (and (= target-col (+ orig-col 2))
                             (let ([rook (vector-ref (vector-ref state orig-row) 7)])
                               (and (piece? rook)
                                    (equal? (piece-type rook) "rook")
-                                   (not (piece-dragged? rook))))) ; Rook has not moved
-                       (and (= target-col (- orig-col 3)) ; Castling left
+                                   (not (piece-dragged? rook)))))
+                       (and (= target-col (- orig-col 3))
                             (let ([rook (vector-ref (vector-ref state orig-row) 0)])
                               (and (piece? rook)
                                    (equal? (piece-type rook) "rook")
-                                   (not (piece-dragged? rook))))))) ; Rook has not moved
+                                   (not (piece-dragged? rook)))))))
               (begin
                 ; Perform castling
                 (let ([rook-col (if (= target-col (+ orig-col 2)) 7 0)]
@@ -926,7 +926,7 @@
                                            (piece-repeatable? selected-piece)
                                            (piece-player selected-piece)
                                            (piece-color selected-piece)
-                                           #t ; mark as moved
+                                           #t
                                            (piece-img selected-piece)
                                            (piece-width selected-piece)
                                            (piece-height selected-piece)
@@ -940,7 +940,7 @@
                                              (piece-repeatable? rook)
                                              (piece-player rook)
                                              (piece-color rook)
-                                             #t ; mark as moved
+                                             #t
                                              (piece-img rook)
                                              (piece-width rook)
                                              (piece-height rook)
@@ -952,11 +952,9 @@
                 ; Check for pawn promotion
                 (let ([new-piece 
                       (if (and (equal? (piece-type selected-piece) "pawn")
-                              (or (and (equal? (piece-color selected-piece) "white")
-                                      (= target-row 0))  ; White pawn reached top
-                                  (and (equal? (piece-color selected-piece) "black")
-                                      (= target-row 7)))) ; Black pawn reached bottom
-                          ; Create a new queen
+                              (or (and (equal? (piece-color selected-piece) "white") (= target-row 7))
+                                  (and (equal? (piece-color selected-piece) "black") (= target-row 0))))
+                          ; Promote to queen
                           (make-piece "queen"
                                     KING-QUEEN-MOVES
                                     #t
@@ -975,7 +973,7 @@
                                     (piece-repeatable? selected-piece)
                                     (piece-player selected-piece)
                                     (piece-color selected-piece)
-                                    #t ; mark as moved
+                                    #t
                                     (piece-img selected-piece)
                                     (piece-width selected-piece)
                                     (piece-height selected-piece)
