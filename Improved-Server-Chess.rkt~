@@ -4,7 +4,7 @@
 (require racket/tcp)
 (require racket/base)
 (require "logic.rkt")
-(require net/dns)
+(require racket/udp)
 
 ;;;;;;;;;; CODE FOR THE SERVER ;;;;;;;;;;;;;
 
@@ -53,14 +53,23 @@
 
 ; (define (obtain-ip)
 ;  (... with-handlers ...
-;       (... dns-get-address ...)))
+;       (begin
+;         (... udp-connect! ...)
+;         (... udp-close ...))))
 
 (define (obtain-ip)
-  (with-handlers
-      ((exn:fail:network?
-        (lambda (exception)
-          "127.0.0.1"))) ; if there's a network error, it returns the IP address for localhost
-    (dns-get-address (dns-get-name) #:ipv6? #false))) ; otherwise, it uses `dns-get-address` to obtain the IP
+  (let ((socket (udp-open-socket))) ; `udp-open-socket`: returns a socket that connects and sends data
+  (with-handlers ((exn:fail:network? (lambda (exception) "127.0.0.1")))  ; `with-handlers`: built-in function for handling exceptions, that in this case are network errors
+                                                                         ; `exn:fail:network?`: checks if an exception is related to the network
+                                                                         ; if so, it returns the localhost (127.0.0.1)
+    (begin
+      (udp-connect! socket "8.8.8.8" 53) ; `udp-connect!`: connects the socket to the ip address and the port
+                                                     ; 8.8.8.8 and 53: ip address and port used by DNS, specificaly 8.8.8.8 refers to Google's DNS and it allows us to obtain the IP address of the computer
+      (let-values (((local-ip local-port remote-ip remote-port) (udp-addresses socket #true))) ; `udp-addresses`: with #true, it returns the address and the port of the local machine,
+                                                                                                          ; and the address and the port of the remote machine
+                                                                                                          ; if the port is closed, it raises `exn:fail:network`
+        (udp-close socket) ; `udp-close`: closes the socket
+        local-ip)))))
 
 ;; CONNECTION MANAGEMENT ;;
 
@@ -136,32 +145,30 @@
 
 ;; CHECKING IF THE MOVES ARE VALID ;;
 
-;; check-move: Move Color -> Boolean
-; checks if a move is a valid chess move and if the moving player is correct
-; header: (define (check-move move color) #true)
+;; check-move: Move -> Boolean
+; checks if a move is a valid chess move
+; header: (define (check-move move) #true)
 
 ;; Template
 
-; (define (check-move move color)
+; (define (check-move move)
 ;  (cond
 ;    [... piece ...]
 ;    [... piece-type ... move ...]
-;    [... piece-color ...]
 ;    [else ... move ...]))
 
-(define (check-move move color)
+(define (check-move move)
   (let ((starting-piece (get-piece (first move)))) ; gets the piece at the starting position
     (cond
       [(not (= (length move) 2)) #false] ; checks if the move contains an initial and a final position
       [(not (piece? starting-piece)) #false] ; if there isn't any piece, the move is not valid
-      [(not (equal? (piece-color starting-piece) color)) #false] ; checks if the color of the moving player is correct
       [(equal? (piece-type starting-piece) "pawn") ; if the piece is a pawn
        (member (second move) (possible-pawn-moves (list (get-piece (second move))) ; gets the possible moves
                               (first move)))] ; and checks if it's a valid move for the pawn
       [else ; otherwise, if the piece is not a pawn
        (member (second move) (apply append
                                          (calculate-all-moves
-                                          (first move) (piece-movement starting-piece) (piece-repeatable? starting-piece))))]))) ; the function checks if its move is valid
+                                          (first move) (piece-movement starting-piece) (piece-repeatable starting-piece))))]))) ; the function checks if its move is valid
 
 ;; INTERPRETING THE MOVES
 
@@ -175,7 +182,7 @@
 ;  (cond
 ;    [... move ...]
 ;    [... move ...]
-;    [... move ... moving-color ...]
+;    [... move ...]
 ;    [else
 ;      (begin (... move-piece ...)
 ;             (... write ... opponent-player ...))]))
@@ -186,12 +193,12 @@
      (displayln (string-append moving-color " got disconnected")) #false] ; if the player making the move gets disconnected, the function signals it and the game ends
     [(equal? move 'quit)
      (displayln (string-append opponent-color " wins for opponent's quitting")) #false] ; if the player making the move quits, the opponent wins
-    [(false? (check-move move moving-color)) 'invalid-move #true] ; if the move is not valid, the function signals it and the game continues
+    [(false? (check-move move)) 'invalid-move #true] ; if the move is not valid, the function signals it and the game continues
     [else
      (begin
        (move-piece (first move) (second move)) ; moves the piece according to the player's move
        (write (list (posn-x (first move)) (posn-y (first move))
-                    (posn-x (second move)) (posn-y (second move)))
+                    (posn-x (rest move)) (posn-y (rest move)))
        (connection-server-output opponent-player)) ; the move is sent to the opponent
      (flush-output (connection-server-output opponent-player)) ; `flush-output`: guarantees that the data is immediately sent to `opponent-player` in case of a buffer
      #true)])) ; the game continues
@@ -245,7 +252,7 @@
 ;  (cond
 ;    [... black-connection ... (... close-input-port ...)])
 ;  (cond
-;    [... black-connection ... (... close-output-port ...)])
+;    [... blac-connection ... (... close-output-port ...)])
 ;  (cond
 ;    [... listener ... (... tcp-close ...)]))
 
