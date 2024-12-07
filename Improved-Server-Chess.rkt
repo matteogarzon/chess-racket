@@ -315,27 +315,26 @@
 ;; Template
 
 ; (define (multiple-games listener)
-;  (let (... white-connection ... black-connection ...)
-;    (let (... game-result ...)
-;      (... close-connection ...)
-;      (cond
-;        [... game-result ...]
-;        [else ... multiple-games ...]))))
+;  (... game-management ...)
+;    (cond
+;      [... string=? ...]
+;  [else ... close-connection ...]
+;  (... multiple-games ...)))
 
 (define (multiple-games listener)
-  (let ((white-connection (player-connection listener "White"))
-        (black-connection (player-connection listener "Black")))
+  (displayln "Waiting for the players to connect")
+  (let* ((black-connection (player-connection listener "Black"))
+         (white-connection (player-connection listener "White")))
     (displayln "Both players connected")
-    (let ((game-result (alternate-move
-                        white-connection "White"
-                        black-connection "Black"
-                        (receive-move white-connection "White"))))
-      (close-connection white-connection black-connection listener)
+    (game-management white-connection black-connection)
+    (displayln "Game ended. Do you want to play again? (yes/no)")
+    (let ((answer (read-line))) ; `read-line`: built-in function that reads what the player writes
       (cond
-        [(equal? game-result 'quit)
-         (displayln "Terminating the server")
-         (exit)] ; `exit`: terminates the server
-        [else (multiple-games listener)]))))
+        [(string=? answer "yes")
+         (game-management white-connection black-connection)
+         (multiple-games listener)]
+    [else (close-connection white-connection black-connection listener)
+    (multiple-games listener)]))))
 
 ;; STARTING THE SERVER ;;
 
@@ -368,7 +367,7 @@
       (displayln "Press 'q' and Enter to terminate the server")
       (cond
         [(equal? (read-line) "q")
-         (displayln "Terminating the server")] ; `read-line`: built-in function that reads what the player writes
+         (displayln "Terminating the server")]
       [else (multiple-games listener)]))))
 
 (start-server)
