@@ -12,10 +12,7 @@
 (require 2htdp/image)
 (require 2htdp/universe)
 (require racket/base)
-(require "logic.rkt")
-(provide INITIAL-STATE)
-(provide handle-mouse)
-(provide render)
+(require "logic-p1.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Data type ;;;;;;;;;;
@@ -721,7 +718,7 @@
 ;;;;; render ;;;;;
 
 ;; Implementation
-(define (render-chessboard state)
+(define (render state)
   (let* ([scene EMPTY-CHESSBOARD]
          [scene-with-pieces
           (foldl (lambda (row-idx scene)
@@ -880,7 +877,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define selected-piece #f)
+
 (define selected-pos #f)
+
 (define game-over #f)
 
 ;;;;; handle-move ;;;;;
@@ -1175,99 +1174,7 @@
                 state)]))]
         [else state])))
 
-
-;;;;;;;;;;;;;;;;;;;;;;;
-;;MODIFICHE DI MATTEO;;
-;;;;;;;;;;;;;;;;;;;;;;;
-
-(define GAME-STATE "NO-GAME") ; can be either NO-GAME or GAME
-
-;;;; WELCOME PAGE
-(define WINDOW-WIDTH 512)
-(define WINDOW-HEIGHT 512)
-(define TEXT-BACKGROUND-WIDTH 300) 
-(define TEXT-BACKGROUND-HEIGHT 80)
-(define TEXT-BACKGROUND-COLOR "lightgreen")
-(define TEXT-COLOR "black")
-
-;; Create the welcome screen elements
-(define TITLE-TEXT (text "Welcome to Chess!" 40 TEXT-COLOR))
-(define AUTHORS-TEXT (text "By Leonardo Longhi, Loris Vasirani & Matteo Garzon" 20 TEXT-COLOR))
-(define INSTRUCTIONS-TEXT 
-  (overlay
-   (above
-    (text "Instructions:" 24 TEXT-COLOR)
-    (text "• During the game, press 'q' to leave." 18 TEXT-COLOR)
-    (text "• To connect to other player, ..." 18 TEXT-COLOR))
-   (rectangle TEXT-BACKGROUND-WIDTH TEXT-BACKGROUND-HEIGHT "solid" TEXT-BACKGROUND-COLOR)))
-
-;; Main welcome screen scene
-(define (render-welcome state)
-  (place-images
-   (list TITLE-TEXT
-         AUTHORS-TEXT
-         INSTRUCTIONS-TEXT)
-   (list (make-posn (/ WINDOW-WIDTH 2) 150)
-         (make-posn (/ WINDOW-WIDTH 2) 180)
-         (make-posn (/ WINDOW-WIDTH 2) (/ WINDOW-HEIGHT 2)))
-   (empty-scene WINDOW-WIDTH WINDOW-HEIGHT "honeydew")))
-
-
-;;; FOR EXIT PAGE
-(define (render-exit state)
-  (place-image
-   (text "Press 'y' to end the game.\nTo resume, press 'n'." 
-         24 
-         TEXT-COLOR)
-   (/ WINDOW-WIDTH 2)
-   (/ WINDOW-HEIGHT 2)
-   (empty-scene WINDOW-WIDTH WINDOW-HEIGHT "honeydew")))
-
-; end-game
-; also disconnects!!!! + resets the chessboard
-(define (end-game)
- (begin
-   (set! GAME-STATE "NO-GAME")
-   (reset-chessboard)))
-
-(define (start-game)
- (set! GAME-STATE "GAME"))
-
-(define (exit-game)
- (set! GAME-STATE "END-CONFIRMATION"))
-
-(define BOARD-STATE (vector-copy-deep INITIAL-STATE))
-
-(define (reset-chessboard)
-  (begin
-    (set! selected-piece #f)
-    (set! selected-pos #f)
-    (set! game-over #f)
-    (vector-copy! INITIAL-STATE 0 BOARD-STATE)))
-
-;; INPUT/OUTPUT
-; handle-key: KeyEvent -> AppState
-; modify state 's' in response to 'key' being pressed
-; header: (define (handle-key s key) s)
-
-(define (handle-key s key)
-  (cond
-    [(and (string=? GAME-STATE "GAME" ) (string=? key "q")) (begin (exit-game) s)] ; shows exit prompt (doesn't end game!)
-    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "y")) (begin (end-game) s)] ; ends game + disconnects? 
-    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "n")) (begin (start-game) s)] ; resumes game
-    [(and (string=? GAME-STATE "NO-GAME") (string=? key "g")) (begin (start-game) s)] ; starts game
-    [else s]))
-
-(define (render state)
-  (cond
-    [(string=? "GAME" GAME-STATE) (render-chessboard state)]
-    [(string=? "END-GAME" GAME-STATE) (render-welcome state)]
-    [(string=? "END-CONFIRMATION" GAME-STATE) (render-exit state)]
-    [else (render-welcome state)]))
-
 ; Run the program
 (big-bang INITIAL-STATE
-  (name "Chess")
-  (on-mouse handle-mouse)
-  (on-key handle-key)
-  (to-draw render))
+          (on-mouse handle-mouse)
+          (to-draw render))
