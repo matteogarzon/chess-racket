@@ -136,30 +136,32 @@
 
 ;; CHECKING IF THE MOVES ARE VALID ;;
 
-;; check-move: Move -> Boolean
-; checks if a move is a valid chess move
-; header: (define (check-move move) #true)
+;; check-move: Move Color -> Boolean
+; checks if a move is a valid chess move and if the moving player is correct
+; header: (define (check-move move color) #true)
 
 ;; Template
 
-; (define (check-move move)
+; (define (check-move move color)
 ;  (cond
 ;    [... piece ...]
 ;    [... piece-type ... move ...]
+;    [... piece-color ...]
 ;    [else ... move ...]))
 
-(define (check-move move)
+(define (check-move move color)
   (let ((starting-piece (get-piece (first move)))) ; gets the piece at the starting position
     (cond
       [(not (= (length move) 2)) #false] ; checks if the move contains an initial and a final position
       [(not (piece? starting-piece)) #false] ; if there isn't any piece, the move is not valid
+      [(not (equal? (piece-color starting-piece) color)) #false] ; checks if the color of the moving player is correct
       [(equal? (piece-type starting-piece) "pawn") ; if the piece is a pawn
        (member (second move) (possible-pawn-moves (list (get-piece (second move))) ; gets the possible moves
                               (first move)))] ; and checks if it's a valid move for the pawn
       [else ; otherwise, if the piece is not a pawn
        (member (second move) (apply append
                                          (calculate-all-moves
-                                          (first move) (piece-movement starting-piece) (piece-repeatable starting-piece))))]))) ; the function checks if its move is valid
+                                          (first move) (piece-movement starting-piece) (piece-repeatable? starting-piece))))]))) ; the function checks if its move is valid
 
 ;; INTERPRETING THE MOVES
 
