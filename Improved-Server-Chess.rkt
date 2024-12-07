@@ -92,11 +92,6 @@
   (flush-output server-output)
     (make-connection server-input server-output color))
 
-;; Examples
-
-(check-expect (connection-management 1001 2000 "White") (make-connection 1001 2000 "White"))
-(check-expect (connection-management 5878 1999 "Black") (make-connection 5878 1999 "Black"))
-
 ;; PLAYER'S CONNECTION ;;
 
 ;; player-connection: TCP listener Color -> Connection

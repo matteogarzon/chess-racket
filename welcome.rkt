@@ -20,7 +20,7 @@
 (define TITLE-TEXT (text "Welcome to Chess!" 40 TEXT-COLOR))
 (define AUTHORS-TEXT (text "By Leonardo Longhi, Loris Vasirani & Matteo Garzon" 20 TEXT-COLOR))
 
-(define INSTRUCTIONS-TEXT 
+(define INSTRUCTIONS-TEXT
    (above
     (text "Instructions:" 24 TEXT-COLOR)
     (text "• Press 'h' to host a game." 18 TEXT-COLOR)
