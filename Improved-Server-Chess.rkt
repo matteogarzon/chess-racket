@@ -200,34 +200,73 @@
 
 (check-expect (interpret-move C1 "White" C2 "Black" 'quit) #false)
 
-;; ALTERNATING THE MOVES BETWEEN THE PLAYERS ;;
+;; MANAGING A SINGLE GAME ;;
 
-;; alternate-move: Connection Color Connection Color Move -> Boolean 
-; alternates the moves between the two players, ensusring that they play alternately a turn each until the end of the match
-; header: (define (alternate-move moving-player moving-color opponent-player opponent-color move) #false)
+;; game-management: Connection Connection -> void
+; manages a single game between the two players
+; header: (define (game-management white-connection black-connection) void)
 
 ;; Template
 
-; (define (alternate-move moving-player moving-color opponent-player oppoennt-color move)
+; (define (game-management white-connection black-connection)
 ;  (cond
-;    [(false? (... interpret-move ...) ...]
+;   [equal? ... white-move ...]
+;    [... check-move ...
+;         (begin
+;           (... move-piece ...)
+;           (... white-move ... connection-server-output ... black-connection ...))
+;           (cond
+;             [equal? ...
+;              (... interpret-move ...)]
+;            [... check-move ...
+;                  (begin
+;                    (... move-piece ...)
+;                    (... connection-server-output ... white-connection ...))
+;                    (... game-management ...)]
+;             [else
+;              ... game-management ...])]
 ;    [else
-;     (cond
-;      [(false? (... interpret-move ...) ...]
-;      [else (... alternate-move ...)]))]))
+;    ... game-management ...]))
 
-(define (alternate-move moving-player moving-color opponent-player opponent-color move)
-  (cond
-    [(false? (interpret-move moving-player moving-color opponent-player opponent-color move)) #false] ; if `interpret-move` returns #false, then the match ends
-    [else
-     (let ((next-move (receive-move opponent-player opponent-color))) ; otherwise, the move is received by the opponent
-     (cond
-       [(false? (interpret-move opponent-player opponent-color moving-player moving-color next-move)) #false] ; if the opponent's move is #false (they got disconnected or quitted), then the match ends
-       [else (alternate-move opponent-player opponent-color moving-player moving-color next-move)]))])) ; otherwise, `alternate-move` is called recursively and the opponent makes his move
-
-;; Example
-
-(check-expect (alternate-move C1 "White" C2 "Black" 'quit) #false)
+(define (game-management white-connection black-connection)
+  ; Start of White player moves
+  (let ((white-move (receive-move white-connection "White")))
+    (cond
+      [(or (equal? white-move 'disconnect) (equal? white-move 'quit))
+       (interpret-move white-connection "White"
+                       black-connection "Black"
+                       white-move)] ; if the player gets disconnected or quits,
+                                    ; the move is interpreted accordingly, so the game ends
+      [(and (list? white-move) (= (length white-move) 2)
+            (check-move white-move "White")) ; if the move is valid,
+       (begin
+         (move-piece (first white-move) (second white-move)) ; the piece is moved
+         (write white-move (connection-server-input black-connection)) ; and the move is sent to the opponent
+         (flush-output (connection-server-input black-connection)))
+       ; Start of Black player moves
+         (let ((black-move (receive-move black-connection "Black")))
+           (cond
+             [(or (equal? black-move 'disconnect) (equal? black-move 'quit))
+              (interpret-move black-connection "Black"
+                              white-connection "White"
+                              black-move)]
+             [(and (list? black-move) (= (length black-move) 2)
+                   (check-move black-move "Black"))
+              (begin
+                (move-piece (first black-move) (second black-move))
+                (write black-move (connection-server-input white-connection))
+                (flush-output (connection-server-input white-connection)))
+              (game-management white-connection black-connection)]
+             [else
+              (write 'invalid-move (connection-server-input black-connection))
+              (flush-output (connection-server-input black-connection))
+              (game-management white-connection black-connection)]))]
+      ; End of Black player moves
+         [else
+          (write 'invalid-move (connection-server-input white-connection))
+          (flush-output (connection-server-input white-connection))
+          (game-management white-connection black-connection)])))
+; End of White player moves
 
 ;; CLOSING THE CONNECTION ;;
 
