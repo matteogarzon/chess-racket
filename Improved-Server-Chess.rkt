@@ -193,10 +193,8 @@
     [else
      (begin
        (move-piece (first move) (second move)) ; moves the piece according to the player's move
-       (write (list (posn-x (first move)) (posn-y (first move))
-                    (posn-x (second move)) (posn-y (second move)))
-       (connection-server-output opponent-player)) ; the move is sent to the opponent
-     (flush-output (connection-server-output opponent-player)) ; `flush-output`: guarantees that the data is immediately sent to `opponent-player` in case of a buffer
+       (write move (connection-server-input opponent-player)) ; the move is sent to the opponent
+     (flush-output (connection-server-input opponent-player)) ; `flush-output`: guarantees that the data is immediately sent to `opponent-player` in case of a buffer
      #true)])) ; the game continues
 
 ;; Examples
