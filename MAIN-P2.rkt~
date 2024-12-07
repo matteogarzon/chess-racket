@@ -1,6 +1,6 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
-#reader(lib "htdp-advanced-reader.ss" "lang")((modname MAIN-P1) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
+#reader(lib "htdp-advanced-reader.ss" "lang")((modname MAIN-P2) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
 ;%%%%%%%%%%%%%%%%%%%%;
 ;#### CHESS GAME ####;
 ;%%%%%%%%%%%%%%%%%%%%;
@@ -12,10 +12,7 @@
 (require 2htdp/image)
 (require 2htdp/universe)
 (require racket/base)
-(require "logic-p1.rkt")
-(provide INITIAL-STATE)
-(provide handle-mouse)
-(provide render)
+(require "logic.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Data type ;;;;;;;;;;
@@ -515,35 +512,18 @@
 ; Defining INITIAL-STATE
 (define INITIAL-STATE 
   (vector
-    ; Row 0 - Black Special Pieces row
+    ; Row 1 - White Special Pieces row
     (vector 
-      (make-piece "rook" ROOK-MOVES #t 1 "black" #f B-ROOK1-IMAGE rook-width rook-height #t)
-      (make-piece "knight" KNIGHT-MOVES #t 1 "black" #f B-KNIGHT1-IMAGE knight-width knight-height #t)
-      (make-piece "bishop" DIAGONAL-MOVES #t 1 "black" #f B-BISHOP1-IMAGE bishop-width bishop-height #t)
-      (make-piece "queen" KING-QUEEN-MOVES #t 1 "black" #f B-QUEEN-IMAGE queen-width queen-height #t)
-      (make-piece "king" KING-QUEEN-MOVES #f 1 "black" #f B-KING-IMAGE king-width king-height #t)
-      (make-piece "bishop" DIAGONAL-MOVES #t 1 "black" #f B-BISHOP2-IMAGE bishop-width bishop-height #t)
-      (make-piece "knight" KNIGHT-MOVES #t 1 "black" #f B-KNIGHT2-IMAGE knight-width knight-height #t)
-      (make-piece "rook" ROOK-MOVES #t 1 "black" #f B-ROOK2-IMAGE rook-width rook-height #t))
+      (make-piece "rook" ROOK-MOVES #t 2 "white" #f W-ROOK1-IMAGE rook-width rook-height #t)
+      (make-piece "knight" KNIGHT-MOVES #t 2 "white" #f W-KNIGHT1-IMAGE knight-width knight-height #t)
+      (make-piece "bishop" DIAGONAL-MOVES #t 2 "white" #f W-BISHOP1-IMAGE bishop-width bishop-height #t)
+      (make-piece "queen" KING-QUEEN-MOVES #t 2 "white" #f W-QUEEN-IMAGE queen-width queen-height #t)
+      (make-piece "king" KING-QUEEN-MOVES #f 2 "white" #f W-KING-IMAGE king-width king-height #t)
+      (make-piece "bishop" DIAGONAL-MOVES #t 2 "white" #f W-BISHOP2-IMAGE bishop-width bishop-height #t)
+      (make-piece "knight" KNIGHT-MOVES #t 2 "white" #f W-KNIGHT2-IMAGE knight-width knight-height #t)
+      (make-piece "rook" ROOK-MOVES #t 2 "white" #f W-ROOK2-IMAGE rook-width rook-height #t))
     
-    ; Row 1 - Black pawns
-    (vector 
-      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN1-IMAGE pawn-width pawn-height #t)
-      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN2-IMAGE pawn-width pawn-height #t)
-      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN3-IMAGE pawn-width pawn-height #t)
-      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN4-IMAGE pawn-width pawn-height #t)
-      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN5-IMAGE pawn-width pawn-height #t)
-      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN6-IMAGE pawn-width pawn-height #t)
-      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN7-IMAGE pawn-width pawn-height #t)
-      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN8-IMAGE pawn-width pawn-height #t))
-    
-    ; Rows 2-5 - Empty spaces
-    (vector 0 0 0 0 0 0 0 0)
-    (vector 0 0 0 0 0 0 0 0)
-    (vector 0 0 0 0 0 0 0 0)
-    (vector 0 0 0 0 0 0 0 0)
-    
-    ; Row 6 - White pawns
+    ; Row 2 - White pawns
     (vector 
       (make-piece "pawn" VERTICAL-MOVES #t 2 "white" #f W-PAWN1-IMAGE pawn-width pawn-height #t)
       (make-piece "pawn" VERTICAL-MOVES #t 2 "white" #f W-PAWN2-IMAGE pawn-width pawn-height #t)
@@ -554,16 +534,37 @@
       (make-piece "pawn" VERTICAL-MOVES #t 2 "white" #f W-PAWN7-IMAGE pawn-width pawn-height #t)
       (make-piece "pawn" VERTICAL-MOVES #t 2 "white" #f W-PAWN8-IMAGE pawn-width pawn-height #t))
     
-    ; Row 7 - White Special Pieces row
+    ; Rows 2-5 - Empty spaces
+    (vector 0 0 0 0 0 0 0 0)
+    (vector 0 0 0 0 0 0 0 0)
+    (vector 0 0 0 0 0 0 0 0)
+    (vector 0 0 0 0 0 0 0 0)
+
+    ; Row 8 - Black pawns
     (vector 
-      (make-piece "rook" ROOK-MOVES #t 2 "white" #f W-ROOK1-IMAGE rook-width rook-height #t)
-      (make-piece "knight" KNIGHT-MOVES #t 2 "white" #f W-KNIGHT1-IMAGE knight-width knight-height #t)
-      (make-piece "bishop" DIAGONAL-MOVES #t 2 "white" #f W-BISHOP1-IMAGE bishop-width bishop-height #t)
-      (make-piece "queen" KING-QUEEN-MOVES #t 2 "white" #f W-QUEEN-IMAGE queen-width queen-height #t)
-      (make-piece "king" KING-QUEEN-MOVES #f 2 "white" #f W-KING-IMAGE king-width king-height #t)
-      (make-piece "bishop" DIAGONAL-MOVES #t 2 "white" #f W-BISHOP2-IMAGE bishop-width bishop-height #t)
-      (make-piece "knight" KNIGHT-MOVES #t 2 "white" #f W-KNIGHT2-IMAGE knight-width knight-height #t)
-      (make-piece "rook" ROOK-MOVES #t 2 "white" #f W-ROOK2-IMAGE rook-width rook-height #t))))
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN1-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN2-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN3-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN4-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN5-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN6-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN7-IMAGE pawn-width pawn-height #t)
+      (make-piece "pawn" VERTICAL-MOVES #t 1 "black" #f B-PAWN8-IMAGE pawn-width pawn-height #t))
+
+    ; Row 0 - Black Special Pieces row
+    (vector 
+      (make-piece "rook" ROOK-MOVES #t 1 "black" #f B-ROOK1-IMAGE rook-width rook-height #t)
+      (make-piece "knight" KNIGHT-MOVES #t 1 "black" #f B-KNIGHT1-IMAGE knight-width knight-height #t)
+      (make-piece "bishop" DIAGONAL-MOVES #t 1 "black" #f B-BISHOP1-IMAGE bishop-width bishop-height #t)
+      (make-piece "queen" KING-QUEEN-MOVES #t 1 "black" #f B-QUEEN-IMAGE queen-width queen-height #t)
+      (make-piece "king" KING-QUEEN-MOVES #f 1 "black" #f B-KING-IMAGE king-width king-height #t)
+      (make-piece "bishop" DIAGONAL-MOVES #t 1 "black" #f B-BISHOP2-IMAGE bishop-width bishop-height #t)
+      (make-piece "knight" KNIGHT-MOVES #t 1 "black" #f B-KNIGHT2-IMAGE knight-width knight-height #t)
+      (make-piece "rook" ROOK-MOVES #t 1 "black" #f B-ROOK2-IMAGE rook-width rook-height #t))))
+    
+
+    
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Functions ;;;;;;;;;;
@@ -721,7 +722,7 @@
 ;;;;; render ;;;;;
 
 ;; Implementation
-(define (render-chessboard state)
+(define (render state)
   (let* ([scene EMPTY-CHESSBOARD]
          [scene-with-pieces
           (foldl (lambda (row-idx scene)
@@ -752,7 +753,7 @@
                  (build-list 8 values))])
     ; Add winning message if game is over
     (if game-over
-        (place-image (text "Player 2 Wins!" 40 "red")
+        (place-image (text "Player 1 Wins!" 40 "red")
                     (* SQUARE-SIDE 4)  ; Center horizontally
                     (* SQUARE-SIDE 4)  ; Center vertically
                     scene-with-pieces)
@@ -880,7 +881,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define selected-piece #f)
+
 (define selected-pos #f)
+
 (define game-over #f)
 
 ;;;;; handle-move ;;;;;
@@ -900,17 +903,17 @@
         (begin
           ; Check for castling
           (if (and (equal? (piece-type selected-piece) "king")
-                   (not (piece-dragged? selected-piece)) ; King has not moved
-                   (or (and (= target-col (+ orig-col 2)) ; Castling right
+                   (not (piece-dragged? selected-piece))
+                   (or (and (= target-col (+ orig-col 2))
                             (let ([rook (vector-ref (vector-ref state orig-row) 7)])
                               (and (piece? rook)
                                    (equal? (piece-type rook) "rook")
-                                   (not (piece-dragged? rook))))) ; Rook has not moved
-                       (and (= target-col (- orig-col 3)) ; Castling left
+                                   (not (piece-dragged? rook)))))
+                       (and (= target-col (- orig-col 3))
                             (let ([rook (vector-ref (vector-ref state orig-row) 0)])
                               (and (piece? rook)
                                    (equal? (piece-type rook) "rook")
-                                   (not (piece-dragged? rook))))))) ; Rook has not moved
+                                   (not (piece-dragged? rook)))))))
               (begin
                 ; Perform castling
                 (let ([rook-col (if (= target-col (+ orig-col 2)) 7 0)]
@@ -923,7 +926,7 @@
                                            (piece-repeatable? selected-piece)
                                            (piece-player selected-piece)
                                            (piece-color selected-piece)
-                                           #t ; mark as moved
+                                           #t
                                            (piece-img selected-piece)
                                            (piece-width selected-piece)
                                            (piece-height selected-piece)
@@ -937,7 +940,7 @@
                                              (piece-repeatable? rook)
                                              (piece-player rook)
                                              (piece-color rook)
-                                             #t ; mark as moved
+                                             #t
                                              (piece-img rook)
                                              (piece-width rook)
                                              (piece-height rook)
@@ -949,11 +952,9 @@
                 ; Check for pawn promotion
                 (let ([new-piece 
                       (if (and (equal? (piece-type selected-piece) "pawn")
-                              (or (and (equal? (piece-color selected-piece) "white")
-                                      (= target-row 0))  ; White pawn reached top
-                                  (and (equal? (piece-color selected-piece) "black")
-                                      (= target-row 7)))) ; Black pawn reached bottom
-                          ; Create a new queen
+                              (or (and (equal? (piece-color selected-piece) "white") (= target-row 7))
+                                  (and (equal? (piece-color selected-piece) "black") (= target-row 0))))
+                          ; Promote to queen
                           (make-piece "queen"
                                     KING-QUEEN-MOVES
                                     #t
@@ -972,7 +973,7 @@
                                     (piece-repeatable? selected-piece)
                                     (piece-player selected-piece)
                                     (piece-color selected-piece)
-                                    #t ; mark as moved
+                                    #t
                                     (piece-img selected-piece)
                                     (piece-width selected-piece)
                                     (piece-height selected-piece)
@@ -987,46 +988,46 @@
 (define (get-valid-moves piece pos state)
   (let ([moves
          (cond
-           [(equal? (piece-type piece) "pawn")
- (let* ([row (posn-y pos)]
-        [col (posn-x pos)]
-        [direction (if (equal? (piece-color piece) "white") -1 1)]
-        [one-square (make-posn col (+ row direction))]
-        [two-squares (make-posn col (+ row (* 2 direction)))]
-        [capture-left (make-posn (- col 1) (+ row direction))]
-        [capture-right (make-posn (+ col 1) (+ row direction))]
-        [starting-row? (or (and (equal? (piece-color piece) "white") (= row 6))
-                          (and (equal? (piece-color piece) "black") (= row 1)))]
-        ; Check if one square ahead is empty
-        [can-move-one? (and (in-bounds? one-square)
-                           (not (piece? (vector-ref (vector-ref state (posn-y one-square)) 
-                                                  (posn-x one-square)))))]
-        ; Check if two squares ahead is empty and path is clear
-        [can-move-two? (and starting-row?
-                           can-move-one? ; Must be able to move one square first
-                           (in-bounds? two-squares)
-                           (not (piece? (vector-ref (vector-ref state (posn-y two-squares))
-                                                  (posn-x two-squares)))))]
-        ; Check diagonal captures
-        [can-capture-left? (and (in-bounds? capture-left)
-                               (let ([target-piece (vector-ref (vector-ref state (posn-y capture-left))
-                                                             (posn-x capture-left))])
-                                 (and (piece? target-piece)
-                                      (not (equal? (piece-color piece)
-                                                 (piece-color target-piece))))))]
-        [can-capture-right? (and (in-bounds? capture-right)
-                                (let ([target-piece (vector-ref (vector-ref state (posn-y capture-right))
-                                                              (posn-x capture-right))])
-                                  (and (piece? target-piece)
-                                       (not (equal? (piece-color piece)
-                                                  (piece-color target-piece))))))]
-        [basic-moves (filter (lambda (m) (in-bounds? m))
-                           (append
-                            (if can-move-one? (list one-square) '())
-                            (if can-move-two? (list two-squares) '())
-                            (if can-capture-left? (list capture-left) '())
-                            (if can-capture-right? (list capture-right) '())))])
-   basic-moves)]
+            [(equal? (piece-type piece) "pawn")
+            (let* ([row (posn-y pos)]
+                   [col (posn-x pos)]
+                   [direction (if (equal? (piece-color piece) "white") 1 -1)] ; Flipped direction
+                   [one-square (make-posn col (+ row direction))]
+                   [two-squares (make-posn col (+ row (* 2 direction)))]
+                   [capture-left (make-posn (- col 1) (+ row direction))]
+                   [capture-right (make-posn (+ col 1) (+ row direction))]
+                   [starting-row? (or (and (equal? (piece-color piece) "white") (= row 1))  ; Flipped starting rows
+                                    (and (equal? (piece-color piece) "black") (= row 6)))]
+                   ; Check if one square ahead is empty
+                   [can-move-one? (and (in-bounds? one-square)
+                                     (not (piece? (vector-ref (vector-ref state (posn-y one-square)) 
+                                                            (posn-x one-square)))))]
+                   ; Check if two squares ahead is empty and path is clear
+                   [can-move-two? (and starting-row?
+                                     can-move-one? ; Must be able to move one square first
+                                     (in-bounds? two-squares)
+                                     (not (piece? (vector-ref (vector-ref state (posn-y two-squares))
+                                                            (posn-x two-squares)))))]
+                   ; Check diagonal captures
+                   [can-capture-left? (and (in-bounds? capture-left)
+                                         (let ([target-piece (vector-ref (vector-ref state (posn-y capture-left))
+                                                                       (posn-x capture-left))])
+                                           (and (piece? target-piece)
+                                                (not (equal? (piece-color piece)
+                                                           (piece-color target-piece))))))]
+                   [can-capture-right? (and (in-bounds? capture-right)
+                                          (let ([target-piece (vector-ref (vector-ref state (posn-y capture-right))
+                                                                        (posn-x capture-right))])
+                                            (and (piece? target-piece)
+                                                 (not (equal? (piece-color piece)
+                                                            (piece-color target-piece))))))]
+                   [basic-moves (filter (lambda (m) (in-bounds? m))
+                                     (append
+                                      (if can-move-one? (list one-square) '())
+                                      (if can-move-two? (list two-squares) '())
+                                      (if can-capture-left? (list capture-left) '())
+                                      (if can-capture-right? (list capture-right) '())))])
+              basic-moves)]
            
            [(equal? (piece-type piece) "knight")
             (let ([basic-moves
@@ -1159,10 +1160,10 @@
                   (set! selected-piece #f)
                   (set! selected-pos #f)
                   new-state))]
-             ; If we clicked on our own piece (only white pieces)
+             ; If we clicked on our own piece (only black pieces)
              [(and (piece? clicked-piece) 
                    (piece-present? clicked-piece)
-                   (equal? (piece-color clicked-piece) "white")) ; Only allow white pieces
+                   (equal? (piece-color clicked-piece) "black")) ; Only allow black pieces
               (begin
                 (set! selected-piece clicked-piece)
                 (set! selected-pos clicked-pos)
@@ -1175,99 +1176,7 @@
                 state)]))]
         [else state])))
 
-
-;;;;;;;;;;;;;;;;;;;;;;;
-;;MODIFICHE DI MATTEO;;
-;;;;;;;;;;;;;;;;;;;;;;;
-
-(define GAME-STATE "NO-GAME") ; can be either NO-GAME or GAME
-
-;;;; WELCOME PAGE
-(define WINDOW-WIDTH 512)
-(define WINDOW-HEIGHT 512)
-(define TEXT-BACKGROUND-WIDTH 300) 
-(define TEXT-BACKGROUND-HEIGHT 80)
-(define TEXT-BACKGROUND-COLOR "lightgreen")
-(define TEXT-COLOR "black")
-
-;; Create the welcome screen elements
-(define TITLE-TEXT (text "Welcome to Chess!" 40 TEXT-COLOR))
-(define AUTHORS-TEXT (text "By Leonardo Longhi, Loris Vasirani & Matteo Garzon" 20 TEXT-COLOR))
-(define INSTRUCTIONS-TEXT 
-  (overlay
-   (above
-    (text "Instructions:" 24 TEXT-COLOR)
-    (text "• During the game, press 'q' to leave." 18 TEXT-COLOR)
-    (text "• To connect to other player, ..." 18 TEXT-COLOR))
-   (rectangle TEXT-BACKGROUND-WIDTH TEXT-BACKGROUND-HEIGHT "solid" TEXT-BACKGROUND-COLOR)))
-
-;; Main welcome screen scene
-(define (render-welcome state)
-  (place-images
-   (list TITLE-TEXT
-         AUTHORS-TEXT
-         INSTRUCTIONS-TEXT)
-   (list (make-posn (/ WINDOW-WIDTH 2) 150)
-         (make-posn (/ WINDOW-WIDTH 2) 180)
-         (make-posn (/ WINDOW-WIDTH 2) (/ WINDOW-HEIGHT 2)))
-   (empty-scene WINDOW-WIDTH WINDOW-HEIGHT "honeydew")))
-
-
-;;; FOR EXIT PAGE
-(define (render-exit state)
-  (place-image
-   (text "Press 'y' to end the game.\nTo resume, press 'n'." 
-         24 
-         TEXT-COLOR)
-   (/ WINDOW-WIDTH 2)
-   (/ WINDOW-HEIGHT 2)
-   (empty-scene WINDOW-WIDTH WINDOW-HEIGHT "honeydew")))
-
-; end-game
-; also disconnects!!!! + resets the chessboard
-(define (end-game)
- (begin
-   (set! GAME-STATE "NO-GAME")
-   (reset-chessboard)))
-
-(define (start-game)
- (set! GAME-STATE "GAME"))
-
-(define (exit-game)
- (set! GAME-STATE "END-CONFIRMATION"))
-
-(define BOARD-STATE (vector-copy-deep INITIAL-STATE))
-
-(define (reset-chessboard)
-  (begin
-    (set! selected-piece #f)
-    (set! selected-pos #f)
-    (set! game-over #f)
-    (vector-copy! INITIAL-STATE 0 BOARD-STATE)))
-
-;; INPUT/OUTPUT
-; handle-key: KeyEvent -> AppState
-; modify state 's' in response to 'key' being pressed
-; header: (define (handle-key s key) s)
-
-(define (handle-key s key)
-  (cond
-    [(and (string=? GAME-STATE "GAME" ) (string=? key "q")) (begin (exit-game) s)] ; shows exit prompt (doesn't end game!)
-    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "y")) (begin (end-game) s)] ; ends game + disconnects? 
-    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "n")) (begin (start-game) s)] ; resumes game
-    [(and (string=? GAME-STATE "NO-GAME") (string=? key "g")) (begin (start-game) s)] ; starts game
-    [else s]))
-
-(define (render state)
-  (cond
-    [(string=? "GAME" GAME-STATE) (render-chessboard state)]
-    [(string=? "END-GAME" GAME-STATE) (render-welcome state)]
-    [(string=? "END-CONFIRMATION" GAME-STATE) (render-exit state)]
-    [else (render-welcome state)]))
-
 ; Run the program
 (big-bang INITIAL-STATE
-  (name "Chess")
-  (on-mouse handle-mouse)
-  (on-key handle-key)
-  (to-draw render))
+          (on-mouse handle-mouse)
+          (to-draw render))

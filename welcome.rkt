@@ -4,6 +4,8 @@
 (require 2htdp/image)
 (require 2htdp/universe)
 (require racket/base)
+(require "Improved-Server-Chess.rkt")
+(require "Client-Chess.rkt")
 
 ;; Constants for the welcome screen
 (define WINDOW-WIDTH 600)
@@ -12,17 +14,29 @@
 (define TEXT-BACKGROUND-HEIGHT 80)
 (define TEXT-BACKGROUND-COLOR "lightgreen")
 (define TEXT-COLOR "black")
+(define INITIAL-STATE 'waiting)
 
 ;; Create the welcome screen elements
 (define TITLE-TEXT (text "Welcome to Chess!" 40 TEXT-COLOR))
 (define AUTHORS-TEXT (text "By Leonardo Longhi, Loris Vasirani & Matteo Garzon" 20 TEXT-COLOR))
-(define INSTRUCTIONS-TEXT 
-  (overlay
+
+(define INSTRUCTIONS-TEXT
    (above
     (text "Instructions:" 24 TEXT-COLOR)
-    (text "• During the game, press 'q' to leave." 18 TEXT-COLOR)
-    (text "• To connect to other player, ..." 18 TEXT-COLOR))
-   (rectangle TEXT-BACKGROUND-WIDTH TEXT-BACKGROUND-HEIGHT "solid" TEXT-BACKGROUND-COLOR)))
+    (text "• Press 'h' to host a game." 18 TEXT-COLOR)
+    (text "• Press 'j' to join a game." 18 TEXT-COLOR)
+    (text "• During the game, press 'q' and Enter to leave." 18 TEXT-COLOR)))
+
+;; Key handler
+(define (key-handler state key)
+  (cond
+    [(and (equal? state 'waiting) (equal? key "h"))
+     (start-server)
+     (exit)]
+    [(and (equal? state 'waiting) (equal? key "j"))
+     (start-client)
+     (exit)]
+    [else state]))
 
 ;; Main welcome screen scene
 (define (welcome-scene state)
@@ -39,6 +53,7 @@
 (define (run-welcome)
   (big-bang 'waiting
     [name "Chess"]
-    [to-draw welcome-scene]))
+    [to-draw welcome-scene]
+    [on-key key-handler]))
 
 (run-welcome)
