@@ -175,7 +175,7 @@
 ;  (cond
 ;    [... move ...]
 ;    [... move ...]
-;    [... move ...]
+;    [... move ... moving-color ...]
 ;    [else
 ;      (begin (... move-piece ...)
 ;             (... write ... opponent-player ...))]))
@@ -186,12 +186,12 @@
      (displayln (string-append moving-color " got disconnected")) #false] ; if the player making the move gets disconnected, the function signals it and the game ends
     [(equal? move 'quit)
      (displayln (string-append opponent-color " wins for opponent's quitting")) #false] ; if the player making the move quits, the opponent wins
-    [(false? (check-move move)) 'invalid-move #true] ; if the move is not valid, the function signals it and the game continues
+    [(false? (check-move move moving-color)) 'invalid-move #true] ; if the move is not valid, the function signals it and the game continues
     [else
      (begin
        (move-piece (first move) (second move)) ; moves the piece according to the player's move
        (write (list (posn-x (first move)) (posn-y (first move))
-                    (posn-x (rest move)) (posn-y (rest move)))
+                    (posn-x (second move)) (posn-y (second move)))
        (connection-server-output opponent-player)) ; the move is sent to the opponent
      (flush-output (connection-server-output opponent-player)) ; `flush-output`: guarantees that the data is immediately sent to `opponent-player` in case of a buffer
      #true)])) ; the game continues
