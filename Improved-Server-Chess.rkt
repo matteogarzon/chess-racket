@@ -5,6 +5,7 @@
 (require racket/base)
 (require "logic.rkt")
 (require racket/udp)
+(provide start-server)
 
 ;;;;;;;;;; CODE FOR THE SERVER ;;;;;;;;;;;;;
 
@@ -387,5 +388,3 @@
          [else (player-quit)]))) ; otherwise, it keeps monitoring if the player wants to quit
          player-quit)) ; gives the function for the `thread`
     (multiple-games listener))))
-
-(start-server)

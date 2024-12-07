@@ -4,6 +4,7 @@
 (require racket/tcp)
 (require racket/base)
 (require "logic.rkt")
+(provide start-client)
 
 ;;;;;;;;; CODE FOR THE CLIENT ;;;;;;;;;;;
 
