@@ -5,7 +5,7 @@
 (require racket/base)
 (provide start-client)
 (require "MAIN-P1.rkt")
-(require "MAIn-P2.rkt")
+(require "MAIN-P2.rkt")
 
 ;;;;;;;;; CODE FOR THE CLIENT ;;;;;;;;;;;
 
@@ -155,20 +155,19 @@
 ;     (... disconnect-client ...)]))
 
 (define (handle-game server-output server-input)
-  (let ((color (read server-output))) ; receives the player's color from the server,
-                                      ; the first to connect is the black, the second is the white
+  (let ((color (read server-output))) ; receives the player's color from the server
     (displayln (string-append "Playing as " color))
     (cond
       ; Black player
       [(equal? color "Black")
        (big-bang INITIAL-STATE
-         (name "Chess - Black")
+         (name "Black")
          (on-mouse handle-mouse)
          (to-draw render))]
       ; White player
       [else
        (big-bang INITIAL-STATE
-         (name "Chess - White")
+         (name "White")
          (on-mouse handle-mouse)
          (to-draw render))])
     (displayln "Game ended. Do you want to play again? (yes/no)")
@@ -185,15 +184,28 @@
 
 ;; STARTING THE CLIENT
 
-;; start-client: String Number -> Number Number
-; starts the client and connects to the server
-; header: (define (start-client host port) 1 2)
+;; start-client: -> void
+; starts the client and manages its connection
+; header: (define (start-client) void)
 
 ;; Template
 
-; (define (start-client host port)
-;  (... host ... port ...))
-
- (define (start-client host port)
-   (let-values (((input output) (connect-to-server host port))) ; connects to the server
-  (values input output))) ; outputs the two values of the input and output ports
+; (define (start-client)
+;  (... connect-ip ...)
+;  (... connect-to-server ...)
+;  (cond
+;    [... server-input ... server-output ...]
+;    [else ...]))
+    
+(define (start-client)
+  (let*
+      ((ip-address (connect-ip))
+       (connection (connect-to-server ip-address 1234)))
+    (let-values
+        ((((server-input server-output) connection))
+         (cond
+           [(and server-input server-output)
+            (displayln "Connected to the server")
+            (handle-game server-output server-input)]
+           [else
+            (displayln "Failed to connect to the server")])))))

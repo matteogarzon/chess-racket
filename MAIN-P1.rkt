@@ -12,7 +12,7 @@
 (require 2htdp/image)
 (require 2htdp/universe)
 (require racket/base)
-(require "logic-p1.rkt")
+(require "logic.rkt")
 (provide INITIAL-STATE)
 (provide handle-mouse)
 (provide render)
