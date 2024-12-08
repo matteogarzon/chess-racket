@@ -327,7 +327,7 @@
 ;      [... string=? ...]
 ;  [else ... close-connection ...]
 ;  (... multiple-games ...)))
-;;;;;;;!!!!!!!! DA SISTEMARE !!!!!!!!!!!!;;;;;;;;;;
+
 (define (multiple-games listener)
   (local ; random-color: -> Color
     ((define (random-color)
@@ -340,11 +340,11 @@
        (cond
          [(string=? color "Black") "White"]
          [else "Black"])))
-  (displayln "Waiting for the players to connect")
   (let* ((first-color (random-color))
          (second-color (opposite-color first-color))
          (first-connection (player-connection listener first-color))
          (second-connection (player-connection listener second-color)))
+    (displayln "Waiting for the players to connect")
     (displayln "Both players connected")
     (cond
       [(string=? first-color "White")
