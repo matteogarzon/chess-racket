@@ -1,6 +1,6 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
-#reader(lib "htdp-advanced-reader.ss" "lang")((modname server) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
+#reader(lib "htdp-advanced-reader.ss" "lang")((modname Improved-Server-Chess) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
 (require racket/tcp)
 (require racket/base)
 (require "logic.rkt")
@@ -322,29 +322,53 @@
 ;; Template
 
 ; (define (multiple-games listener)
-;  (... game-management ...)
-;  (cond
-;    [string=?
-;     (... game-management ...)
-;     (... multiple-games ...)]
-;    [else
-;     (... close-connection ...)
-;     (... multiple-games ...)]))
+;  (local ...
+;    (cond
+;      [... random ...]
+;      [else ...])
+;    (cond
+;      [string=? ...]
+;      [else ...])
+;    (cond
+;      [string=? ...]
+;      [else
+;       (... game-management ...)])
+;    (cond
+;      [string=? ...]
+;      [else
+;       (... close-connection ...)
+;       (... multiple-games ...)])))
 
 (define (multiple-games listener)
-  (displayln "Waiting for the players to connect")
-  (let* ((black-connection (player-connection listener "Black"))
-         (white-connection (player-connection listener "White")))
+  (local ; random-color: -> Color
+    ((define (random-color)
+       (cond
+         [(= (random 2) 0) "Black"] ; randomly generates 0 or 1
+                                    ; if it's 0, the player is black
+         [else "White"])) ; otherwise, it's white
+     ; opposite-color: String -> String
+     (define (opposite-color color)
+       (cond
+         [(string=? color "Black") "White"]
+         [else "Black"])))
+  (let* ((first-color (random-color))
+         (second-color (opposite-color first-color))
+         (first-connection (player-connection listener first-color))
+         (second-connection (player-connection listener second-color)))
+    (displayln "Waiting for the players to connect")
     (displayln "Both players connected")
-       (game-management white-connection black-connection)
+    (cond
+      [(string=? first-color "White")
+       (game-management first-connection second-connection)]
+      [else (game-management second-connection first-connection)])
     (displayln "Game ended. Do you want to play again? (yes/no)")
     (let ((answer (read-line))) ; `read-line`: built-in function that reads what the player writes
       (cond
         [(string=? answer "yes")
-         (game-management white-connection black-connection)
+         (game-management first-connection second-connection)
          (multiple-games listener)]
-    [else (close-connection white-connection black-connection listener)
-    (multiple-games listener)]))))
+    [else (close-connection first-connection second-connection listener)
+    (multiple-games listener)])))))
 
 ;; STARTING THE SERVER ;;
 
