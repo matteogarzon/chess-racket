@@ -12,7 +12,11 @@
 (require 2htdp/image)
 (require 2htdp/universe)
 (require racket/base)
-(require "logic-p1.rkt")
+(require "logic.rkt")
+(require "welcome.rkt")
+(provide INITIAL-STATE)
+(provide handle-mouse)
+(provide render)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Data type ;;;;;;;;;;
@@ -718,7 +722,7 @@
 ;;;;; render ;;;;;
 
 ;; Implementation
-(define (render state)
+(define (render-chessboard state)
   (let* ([scene EMPTY-CHESSBOARD]
          [scene-with-pieces
           (foldl (lambda (row-idx scene)
@@ -877,9 +881,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define selected-piece #f)
-
 (define selected-pos #f)
-
 (define game-over #f)
 
 ;;;;; handle-move ;;;;;
@@ -1174,7 +1176,68 @@
                 state)]))]
         [else state])))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;
+;;MODIFICHE DI MATTEO;;
+;;;;;;;;;;;;;;;;;;;;;;;
+
+(define GAME-STATE "NO-GAME") ; can be either NO-GAME or GAME
+
+;;; FOR EXIT PAGE
+(define (render-exit state)
+  (place-image
+   (text "Press 'y' to end the game.\nTo resume, press 'n'." 
+         24 
+         TEXT-COLOR)
+   (/ WINDOW-WIDTH 2)
+   (/ WINDOW-HEIGHT 2)
+   (empty-scene WINDOW-WIDTH WINDOW-HEIGHT "honeydew")))
+
+; end-game
+; also disconnects!!!! + resets the chessboard
+(define (end-game)
+ (begin
+   (set! GAME-STATE "NO-GAME")
+   (reset-chessboard)))
+
+(define (start-game)
+ (set! GAME-STATE "GAME"))
+
+(define (exit-game)
+ (set! GAME-STATE "END-CONFIRMATION"))
+
+(define BOARD-STATE (vector-copy-deep INITIAL-STATE))
+
+(define (reset-chessboard)
+  (begin
+    (set! selected-piece #f)
+    (set! selected-pos #f)
+    (set! game-over #f)
+    (vector-copy! INITIAL-STATE 0 BOARD-STATE)))
+
+;; INPUT/OUTPUT
+; handle-key: KeyEvent -> AppState
+; modify state 's' in response to 'key' being pressed
+; header: (define (handle-key s key) s)
+
+(define (handle-key s key)
+  (cond
+    [(and (string=? GAME-STATE "GAME" ) (string=? key "q")) (begin (exit-game) s)] ; shows exit prompt (doesn't end game!)
+    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "y")) (begin (end-game) s)] ; ends game + disconnects? 
+    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "n")) (begin (start-game) s)] ; resumes game
+    [(and (string=? GAME-STATE "NO-GAME") (string=? key "g")) (begin (start-game) s)] ; starts game
+    [else s]))
+
+(define (render state)
+  (cond
+    [(string=? "GAME" GAME-STATE) (render-chessboard state)]
+    [(string=? "END-GAME" GAME-STATE) (render-welcome state)]
+    [(string=? "END-CONFIRMATION" GAME-STATE) (render-exit state)]
+    [else (render-welcome state)]))
+
 ; Run the program
 (big-bang INITIAL-STATE
-          (on-mouse handle-mouse)
-          (to-draw render))
+  (name "Chess")
+  (on-mouse handle-mouse)
+  (on-key handle-key)
+  (to-draw render))

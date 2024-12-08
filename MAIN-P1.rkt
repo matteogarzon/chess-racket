@@ -13,9 +13,13 @@
 (require 2htdp/universe)
 (require racket/base)
 (require "logic.rkt")
+(require "welcome.rkt")
 (provide INITIAL-STATE)
 (provide handle-mouse)
 (provide render)
+
+(require "server.rkt")
+(require "client.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Data type ;;;;;;;;;;
@@ -33,12 +37,12 @@
 ;   width          :    Number
 ;   height         :    Number
 ;   present?       :    Boolean
-(define-struct piece [type movement repeatable? player color dragged? img width height present?] #:transparent)
 
 ; a Color is one of the following:
 ; - "White"
 ; - "Black"
 ; interpretation: the possible colors of the pieces
+(define-struct piece [type movement repeatable? player color dragged? img width height present?] #:transparent)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Constants ;;;;;;;;;;
@@ -1182,24 +1186,25 @@
 
 (define GAME-STATE "NO-GAME") ; can be either NO-GAME or GAME
 
-;;;; WELCOME PAGE
+;; Constants for the welcome screen
 (define WINDOW-WIDTH 512)
 (define WINDOW-HEIGHT 512)
 (define TEXT-BACKGROUND-WIDTH 300) 
 (define TEXT-BACKGROUND-HEIGHT 80)
-(define TEXT-BACKGROUND-COLOR "lightgreen")
+(define TEXT-BACKGROUND-COLOR "lightblue")
 (define TEXT-COLOR "black")
+(define NETWORK-STATE 'waiting)
 
 ;; Create the welcome screen elements
 (define TITLE-TEXT (text "Welcome to Chess!" 40 TEXT-COLOR))
 (define AUTHORS-TEXT (text "By Leonardo Longhi, Loris Vasirani & Matteo Garzon" 20 TEXT-COLOR))
-(define INSTRUCTIONS-TEXT 
-  (overlay
+
+(define INSTRUCTIONS-TEXT
    (above
     (text "Instructions:" 24 TEXT-COLOR)
-    (text "• During the game, press 'q' to leave." 18 TEXT-COLOR)
-    (text "• To connect to other player, ..." 18 TEXT-COLOR))
-   (rectangle TEXT-BACKGROUND-WIDTH TEXT-BACKGROUND-HEIGHT "solid" TEXT-BACKGROUND-COLOR)))
+    (text "• Press 'h' to host a game." 18 TEXT-COLOR)
+    (text "• Press 'j' to join a game." 18 TEXT-COLOR)
+    (text "• During the game, press 'q' and Enter to leave." 18 TEXT-COLOR)))
 
 ;; Main welcome screen scene
 (define (render-welcome state)
@@ -1210,10 +1215,9 @@
    (list (make-posn (/ WINDOW-WIDTH 2) 150)
          (make-posn (/ WINDOW-WIDTH 2) 180)
          (make-posn (/ WINDOW-WIDTH 2) (/ WINDOW-HEIGHT 2)))
-   (empty-scene WINDOW-WIDTH WINDOW-HEIGHT "honeydew")))
+   (empty-scene WINDOW-WIDTH WINDOW-HEIGHT "azure")))
 
 
-;;; FOR EXIT PAGE
 (define (render-exit state)
   (place-image
    (text "Press 'y' to end the game.\nTo resume, press 'n'." 
@@ -1222,6 +1226,7 @@
    (/ WINDOW-WIDTH 2)
    (/ WINDOW-HEIGHT 2)
    (empty-scene WINDOW-WIDTH WINDOW-HEIGHT "honeydew")))
+
 
 ; end-game
 ; also disconnects!!!! + resets the chessboard
@@ -1246,17 +1251,25 @@
     (vector-copy! INITIAL-STATE 0 BOARD-STATE)))
 
 ;; INPUT/OUTPUT
-; handle-key: KeyEvent -> AppState
+; handle-key: AppState KeyEvent -> AppState
 ; modify state 's' in response to 'key' being pressed
 ; header: (define (handle-key s key) s)
 
-(define (handle-key s key)
+(define (handle-key state key)
   (cond
-    [(and (string=? GAME-STATE "GAME" ) (string=? key "q")) (begin (exit-game) s)] ; shows exit prompt (doesn't end game!)
-    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "y")) (begin (end-game) s)] ; ends game + disconnects? 
-    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "n")) (begin (start-game) s)] ; resumes game
-    [(and (string=? GAME-STATE "NO-GAME") (string=? key "g")) (begin (start-game) s)] ; starts game
-    [else s]))
+    [(and (string=? GAME-STATE "GAME" ) (string=? key "q")) (begin (exit-game) state)] ; shows exit prompt (doesn't end game!)
+    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "y")) (begin (end-game) state)] ; ends game + disconnects? 
+    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "n")) (begin (start-game) state)] ; resumes game
+    [(and (string=? GAME-STATE "NO-GAME") (string=? key "g")) (begin (start-game) state)] ; starts game
+    [(and (equal? state 'waiting) (equal? key "h"))
+     (begin
+       (start-server)
+       (exit))]
+    [(and (equal? state 'waiting) (equal? key "j"))
+     (begin
+       (start-client)
+       (exit))]
+    [else state]))
 
 (define (render state)
   (cond

@@ -24,17 +24,14 @@
 (provide in-bounds?)
 (require 2htdp/image)
 (require 2htdp/universe)
-
-;; NOTA PER LORIS E LEONARDO
-; Per simplificare la logica a livello di array 2D, le pedine del giocatore locale sono state posizionate dalla parte dell'avversario (così basta dire posizione 0 e 0 al posto di 7 e 7, ecc..)
-; Quindi, a livello di UI bisogna cambiare l'ordine una volta che si mettono le pedine nella scacchiera visiva.
+(provide piece-color)
 
 ; Types of Moves
 (define DIAGONAL-MOVES (list (make-posn 1 1) (make-posn 1 -1) (make-posn -1 1) (make-posn -1 -1)))
 (define VERTICAL-MOVES (list (make-posn 1 0) (make-posn -1 0)))
 (define HORIZONTAL-MOVES (list (make-posn 0 1) (make-posn 0 -1)))
 (define KNIGHT-MOVES (list (make-posn 2 1) (make-posn 2 -1) (make-posn -2 1) (make-posn -2 -1) 
-                          (make-posn 1 2) (make-posn 1 -2) (make-posn -1 2) (make-posn -1 -2)))
+                           (make-posn 1 2) (make-posn 1 -2) (make-posn -1 2) (make-posn -1 -2)))
 (define KING-QUEEN-MOVES (append DIAGONAL-MOVES VERTICAL-MOVES HORIZONTAL-MOVES))
 (define ROOK-MOVES (append VERTICAL-MOVES HORIZONTAL-MOVES))
 
@@ -178,6 +175,7 @@
 ; moves piece from original posn position to new position, and mutates BOARD-VECTOR accordingly
 (define (move-piece current-posn new-posn)
   (begin
+    (checkmate new-posn)
     (set-piece new-posn)
     (set-null current-posn)))
 
@@ -190,10 +188,19 @@
 (define (set-null position)
     (vector-set! (vector-ref BOARD-VECTOR (posn-y position)) (posn-x position) 0))
 
+; checkmate : Posn -> Void
+; checks for checkmate, if so, end game.
+(define (checkmate position)
+  (cond
+    [(equal? "king" (piece-type (get-piece position))) 
+     (displayln "CHECKMATE! Press q to return to home screen.")]
+    [else (void)]))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; HELPER FUNCTIONS
+;;;;; HELPER FUNCTIONS ;;;;;
+
 ; get-piece : Posn -> Maybe<Piece>
 (define (get-piece position)
   (vector-ref (vector-ref BOARD-VECTOR (posn-y position)) (posn-x position)))
@@ -225,7 +232,6 @@
 (check-expect (is-there-opponent-piece? (make-posn 5 5)) #false)
 (check-expect (is-there-opponent-piece? (make-posn 7 7)) #true)
 (check-expect (is-there-opponent-piece? (make-posn 8 8)) #false)
-
 
 ; move-one-forward? : Posn -> Boolean
 (define (move-one-forward? position)
@@ -276,6 +282,56 @@
 (define (move-right-diagonal position)
   (make-posn (add1(posn-x position)) (add1(posn-y position))))
 
+;;;;; HELPER FUNCTIONS (for castling) ;;;;;
+
+; can-move-two-right? : Posn -> Boolean
+(define (can-move-two-right? current-position)
+  (local [(define first-posn (make-posn (add1 (posn-x current-position)) (posn-y current-position)))
+          (define second-posn (make-posn (add1 (posn-x first-posn)) (posn-y first-posn)))]
+    (and (in-bounds? first-posn)
+         (in-bounds? second-posn)
+         (not (is-there-piece? first-posn))
+         (not (is-there-piece? second-posn)))))
+
+; can-move-two-left? : Posn -> Boolean
+(define (can-move-two-left? current-position)
+  (local [(define first-posn (make-posn (sub1 (posn-x current-position)) (posn-y current-position)))
+          (define second-posn (make-posn (sub1 (posn-x first-posn)) (posn-y first-posn)))]
+    (and (in-bounds? first-posn)
+         (in-bounds? second-posn)
+         (not (is-there-piece? first-posn))
+         (not (is-there-piece? second-posn)))))
+
+; can-castle-right? : Posn -> Boolean
+(define (can-castle-right? current-position)
+  (let ([rook-pos (make-posn 7 (posn-y current-position))])
+    (and (= 4 (posn-x current-position))  ; King in initial position
+         (is-there-piece? rook-pos)
+         (equal? "rook" (piece-type (get-piece rook-pos)))
+         (can-move-two-right? current-position))))
+
+; can-castle-left? : Posn -> Boolean
+(define (can-castle-left? current-position)
+  (let ([rook-pos (make-posn 0 (posn-y current-position))])
+    (and (= 4 (posn-x current-position))  ; King in initial position
+         (is-there-piece? rook-pos)
+         (equal? "rook" (piece-type (get-piece rook-pos)))
+         (can-move-two-left? current-position))))
+
+; castling : Posn -> (Maybe (List Posn))
+(define (castling current-position)
+  (let ([right (can-castle-right? current-position)]
+        [left (can-castle-left? current-position)])
+    (cond
+      [(and right left) 
+       (list (make-posn (+ (posn-x current-position) 2) (posn-y current-position))
+             (make-posn (- (posn-x current-position) 2) (posn-y current-position)))]
+      [right 
+       (list (make-posn (+ (posn-x current-position) 2) (posn-y current-position)))]
+      [left  
+       (list (make-posn (- (posn-x current-position) 2) (posn-y current-position)))]
+      [else #f])))
+
 ;;;;;;;;;;;;;;;
 ;; PAWN ONLY ;;
 ;;;;;;;;;;;;;;;
@@ -301,14 +357,15 @@
       ; Add forward move if square is empty
       (when (and (in-bounds? forward-pos)
                  (not (is-there-piece? forward-pos)))
-        (set! moves (cons forward-pos moves))
+        (set! moves (cons forward-pos moves)))
         
-        ; Add two-square move if at starting position and path is clear
-        (when (and (or (and (equal? (piece-color piece) "white") (= row 6))
-                       (and (equal? (piece-color piece) "black") (= row 1)))
-                  (in-bounds? two-forward-pos)
-                  (not (is-there-piece? two-forward-pos)))
-          (set! moves (cons two-forward-pos moves))))
+      ; Add two-square move if at starting position and path is clear
+      (when (and (or (and (equal? (piece-color piece) "white") (= row 6))
+                     (and (equal? (piece-color piece) "black") (= row 1)))
+                (in-bounds? two-forward-pos)
+                (not (is-there-piece? forward-pos)) ; Ensure path is clear
+                (not (is-there-piece? two-forward-pos)))
+        (set! moves (cons two-forward-pos moves)))
       
       ; Add diagonal captures
       (when (and (in-bounds? right-diag)
@@ -365,6 +422,13 @@
   (apply append
          (map (lambda (move) (calculate-move '() move current-position is-repeatable))
               movements)))
+
+(define (calculate-all-kings-moves current-position movements is-repeatable)
+  (let ([castling-moves (castling current-position)]
+        [normal-moves (calculate-all-moves current-position movements is-repeatable)])
+    (if castling-moves
+        (append castling-moves normal-moves)
+        normal-moves)))
 
 ; examples:
 (calculate-all-moves (make-posn 3 1) DIAGONAL-MOVES true)

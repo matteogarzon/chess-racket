@@ -1,11 +1,18 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
-#reader(lib "htdp-advanced-reader.ss" "lang")((modname Client-Chess) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
+#reader(lib "htdp-advanced-reader.ss" "lang")((modname client) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
 (require racket/tcp)
 (require racket/base)
 (provide start-client)
-(require "MAIN-P1.rkt")
-(require "MAIN-P2.rkt")
+(require 2htdp/universe)
+(require "logic.rkt")
+
+(provide CHESS-COLOR)
+(define CHESS-COLOR "white") ;; default
+
+
+; (require "MAIN-P1.rkt")
+; (require "MAIN-P2.rkt")
 
 ;;;;;;;;; CODE FOR THE CLIENT ;;;;;;;;;;;
 
@@ -160,16 +167,9 @@
     (cond
       ; Black player
       [(equal? color "Black")
-       (big-bang INITIAL-STATE
-         (name "Black")
-         (on-mouse handle-mouse)
-         (to-draw render))]
+       (set! CHESS-COLOR "black")]
       ; White player
-      [else
-       (big-bang INITIAL-STATE
-         (name "White")
-         (on-mouse handle-mouse)
-         (to-draw render))])
+      [else (set! CHESS-COLOR "white")])
     (displayln "Game ended. Do you want to play again? (yes/no)")
     (let ((answer (read-line)))
       (cond
@@ -202,10 +202,10 @@
       ((ip-address (connect-ip))
        (connection (connect-to-server ip-address 1234)))
     (let-values
-        ((((server-input server-output) connection))
+        (((server-input server-output) connection))
          (cond
            [(and server-input server-output)
             (displayln "Connected to the server")
             (handle-game server-output server-input)]
            [else
-            (displayln "Failed to connect to the server")])))))
+            (displayln "Failed to connect to the server")]))))

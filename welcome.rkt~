@@ -1,3 +1,53 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
 #reader(lib "htdp-advanced-reader.ss" "lang")((modname welcome) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
+(require racket/base)
+(require 2htdp/image)
+(require 2htdp/universe)
+(require "Improved-Server-Chess.rkt")
+(require "Client-Chess.rkt")
+(provide render-welcome)
+
+;; Constants for the welcome screen
+(define WINDOW-WIDTH 512)
+(define WINDOW-HEIGHT 512)
+(define TEXT-BACKGROUND-WIDTH 300) 
+(define TEXT-BACKGROUND-HEIGHT 80)
+(define TEXT-BACKGROUND-COLOR "lightblue")
+(define TEXT-COLOR "black")
+(define INITIAL-STATE 'waiting)
+
+;; Create the welcome screen elements
+(define TITLE-TEXT (text "Welcome to Chess!" 40 TEXT-COLOR))
+(define AUTHORS-TEXT (text "By Leonardo Longhi, Loris Vasirani & Matteo Garzon" 20 TEXT-COLOR))
+
+(define INSTRUCTIONS-TEXT
+   (above
+    (text "Instructions:" 24 TEXT-COLOR)
+    (text "• Press 'h' to host a game." 18 TEXT-COLOR)
+    (text "• Press 'j' to join a game." 18 TEXT-COLOR)
+    (text "• During the game, press 'q' and Enter to leave." 18 TEXT-COLOR)))
+
+;; Key handler
+(define (key-handler state key)
+  (cond
+    [(and (equal? state 'waiting) (equal? key "h"))
+     (begin
+     (start-server)
+     (exit))]
+    [(and (equal? state 'waiting) (equal? key "j"))
+     (begin
+     (start-client)
+     (exit))]
+    [else state]))
+
+;; Main welcome screen scene
+(define (render-welcome state)
+  (place-images
+   (list TITLE-TEXT
+         AUTHORS-TEXT
+         INSTRUCTIONS-TEXT)
+   (list (make-posn (/ WINDOW-WIDTH 2) 150)
+         (make-posn (/ WINDOW-WIDTH 2) 180)
+         (make-posn (/ WINDOW-WIDTH 2) (/ WINDOW-HEIGHT 2)))
+   (empty-scene WINDOW-WIDTH WINDOW-HEIGHT "azure")))

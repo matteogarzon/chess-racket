@@ -25,6 +25,7 @@
 (require 2htdp/image)
 (require 2htdp/universe)
 (provide piece-color)
+(provide piece)
 
 ; Types of Moves
 (define DIAGONAL-MOVES (list (make-posn 1 1) (make-posn 1 -1) (make-posn -1 1) (make-posn -1 -1)))
