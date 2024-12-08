@@ -319,14 +319,25 @@
 ; allows to play as many games as wanted
 ; header: (define (multiple-games listener) void)
 
-;; Template VA CAMBIATO
+;; Template
 
 ; (define (multiple-games listener)
-;  (... game-management ...)
+;  (local ...
 ;    (cond
-;      [... string=? ...]
-;  [else ... close-connection ...]
-;  (... multiple-games ...)))
+;      [... random ...]
+;      [else ...])
+;    (cond
+;      [string=? ...]
+;      [else ...])
+;    (cond
+;      [string=? ...]
+;      [else
+;       (... game-management ...)])
+;    (cond
+;      [string=? ...]
+;      [else
+;       (... close-connection ...)
+;       (... multiple-games ...)])))
 
 (define (multiple-games listener)
   (local ; random-color: -> Color
