@@ -1261,13 +1261,15 @@
     [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "y")) (begin (end-game) state)] ; ends game + disconnects? 
     [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "n")) (begin (start-game) state)] ; resumes game
     [(and (string=? GAME-STATE "NO-GAME") (string=? key "g")) (begin (start-game) state)] ; starts game
-    [(and (equal? state 'waiting) (equal? key "h"))
+    [(and (equal? NETWORK-STATE 'waiting) (equal? key "h"))
      (begin
        (start-server)
+       (set! NETWORK-STATE 'connected)
        (exit))]
-    [(and (equal? state 'waiting) (equal? key "j"))
+    [(and (equal? NETWORK-STATE 'waiting) (equal? key "j"))
      (begin
        (start-client)
+        (set! NETWORK-STATE 'connected)
        (exit))]
     [else state]))
 
