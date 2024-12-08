@@ -150,16 +150,11 @@
 
 ; (define (handle-game server-output server-input)
 ;  (cond
-;    [equal?
-;          ... big-bang ...]
-;    [else ... big-bang ...])
+;    [equal? ... set! ...]
+;    [else ... set! ...])
 ;  (cond
-;    [string=?
-;     (... server-input ...)
-;     (... handle-game ...)]
-;    [else
-;     (... server-input ...)
-;     (... disconnect-client ...)]))
+;    [string=? ... server-input ... handle-game ...]
+;    [else ... server-input ... disconnect-client ...]))
 
 (define (handle-game server-output server-input)
   (let ((color (read server-output))) ; receives the player's color from the server
