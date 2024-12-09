@@ -65,7 +65,7 @@ Let’s focus on each function:
     - It manages a single game between the two players, by: validating the moves, updating the game state, handling invalid moves, and managing the game termination
 - close-connection: closes input ports, output ports, and the TCP listener
 - game-session
-    - Handles a game session composed by multiple games between the same players.
+    - Handles a game session composed of multiple games between the same players.
 - multiple-games
     - Handles multiple game sessions, by waiting for the player connection, asking the user to play again, and therefore managing game restarts
 - start-server
@@ -101,8 +101,9 @@ A variable CHESS-COLOR is declared to store whether the player’s pieces are 
     - This function receives the opponent’s moves from the server, converting before-move and after-move into posns (since they were sent as numbers)
     - It also makes sure these move are valid, by using “in-bounds”.
 - disconnect-client: disconnects the client from the server
-- handle-game
-    - It’s responsible for managing the game flow, by doing the following:
+- handle-game-session
+   - Allows and handles a game session composed of multiple games between the same players.
+   - It’s responsible for managing the game flow, by doing the following:
     - It receives the player's color (assigned by the server).
     - It handles the feature to play again after a game ends, namely by continuing with a new game or quit the connection.
 - start-client

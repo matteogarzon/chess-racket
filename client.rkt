@@ -8,11 +8,7 @@
 (require "logic.rkt")
 
 (provide CHESS-COLOR)
-(define CHESS-COLOR "white") ;; default
-
-
-; (require "MAIN-P1.rkt")
-; (require "MAIN-P2.rkt")
+(define CHESS-COLOR "White") ;; default
 
 ;;;;;;;;; CODE FOR THE CLIENT ;;;;;;;;;;;
 
@@ -26,38 +22,40 @@
 
 ; (define (connect-ip)
 ;  (... with-handlers ...
-;       ... tcp-connect ...))
+;       ... tcp-connect ...)))
 
 (define (connect-ip)
-  (displayln "Enter the server IP address (press Enter for localhost)")
+  (displayln "Enter the server IP address")
   (let ((ip-address (read-line)))
        (with-handlers
            ((exn:fail:network?
              (lambda (exception)
-               (displayln "Unable to connect to the server. Please retry") ; there's a connection error and the program asks to retry
-               (connect-ip))))
+               (displayln "Unable to connect to the server") ; there's a connection error
+               (exit)))) ; and it exits the program
          (tcp-connect ip-address 1234) ; or it tries to connect
          ip-address)))
 
 ;; CONNECTING TO THE SERVER ;;
 
-;; connect-to-server: String Port -> Any
+;; connect-to-server: String Port -> Port Port
 ; connects the client to the server
-; header: (define (connect-to-server server-ip port) #false #false)
+; header: (define (connect-to-server server-ip port) server-input server-output)
 
 ;; Template
 
 ; (define (connect-to-server server-ip port)
-;  (... with-handlers ... (... tcp-connect ... server-ip ... port ...)))
+;  (... with-handlers ...
+;      (... tcp-connect ... server-ip ... port ...)))
 
 (define (connect-to-server server-ip port)
   (with-handlers
       ((exn:fail:network?
         (lambda (exception)
           (displayln "Unable to connect to the server")
-          (values #false #false)))) ; if the client is unable to connect to the server, it means that the input and output ports are closed
-                                    ; `values` is used for returning 2 values
-    (tcp-connect server-ip port))) ; otherwise, it connects
+          (exit))))
+    (define-values (server-input server-output)
+    (tcp-connect server-ip port))
+    (values server-input server-output)))
 
 ;; SENDING MOVES TO THE SERVER ;;
 
@@ -69,22 +67,22 @@
 
 ; (define (send-move-to-server server-input move)
 ;  (... with-handlers ...
-;       (... list ... move ... server-input ...)))
+;       (... move ... server-input ...)))
 
 (define (send-move-to-server server-input move)
   (with-handlers
       ((exn:fail:network?
         (lambda (exception)
-          (displayln "Unable to send the move"))))
-  (begin
+          (displayln "Unable to send the move")
+          (exit))))
   (write move server-input)  ; sends the move
-  (flush-output server-input))))
+  (flush-output server-input)))
 
 ;; RECEIVING MOVES FROM THE SERVER ;;
 
-;; receive-move-from-server: Port -> Any
+;; receive-move-from-server: Port -> Move
 ; receives a move from the server
-; header: (define (receive-move-from-server server-output) #false)
+; header: (define (receive-move-from-server server-output) WHITE-PAWN-E4)
 
 ;; Template
 
@@ -101,8 +99,8 @@
   (with-handlers
       ((exn:fail:network?
         (lambda (exception)
-          (displayln "Disconnected from the server")
-          #false))) ; signals the network error
+          (displayln "Disconnected from the server") ; signals the network error
+          (exit))))
   (let ((input-data (read server-output))) ; reads data from the server output port
     (cond
       [(and (list? input-data) (= (length input-data) 4)) ; if the data is a list of 4 elements,
@@ -110,10 +108,10 @@
         ((before-move (make-posn (first input-data) (second input-data))) ; it gets the initial position
         (after-move (make-posn (third input-data) (fourth input-data)))) ; and the final position
          (cond
-           [(and (in-bounds? before-move) (in-bounds? after-move))
-                 (list before-move after-move)]
-           [else #false]))] ; the move isn't valid, because it's not inside the chessboard
-      [else #false])))) ; the data isn't correct
+           [(and (in-bounds? before-move) (in-bounds? after-move)) ; if the move is valid,
+                 (list before-move after-move)] ; it returns it
+           [else 'invalid-move]))] ; otherwise, it's signaled as an invalid move
+      [else 'invalid-move])))) ; the data isn't valid
 
 ;; DISCONNECTING THE CLIENT FROM THE SERVER ;;
 
@@ -124,53 +122,70 @@
 ;; Template
 
 ; (define (disconnect-client server-output server-input)
+;  (... with-handlers ...
 ;  (cond
-;    [... server-output ... (... close-input-port ...)])
-;  (cond
-;    [... server-input ... (... close-output-port ...)]))
+;    [... server-output ... server-input ... (... server-output ...)
+;                                            (... server-input ...)]
+;    [... server-output ... (... server-output ...)]
+;    [... server-input ... (... server-input ...)])))
 
 (define (disconnect-client server-output server-input)
-  (cond
-    [server-output (close-input-port server-output)])
-  (cond
-    [server-input (close-output-port server-input)]))
+  (with-handlers
+      ((exn:fail:network?
+        (lambda (exception)
+          (displayln "Error while disconnecting the client"))))
+    (cond
+      [(and server-output server-input) ; both ports open
+       (close-input-port server-output)
+       (close-output-port server-input)]
+      [server-output ; only input port open
+       (close-input-port server-output)]
+      [server-input ; only output port open
+       (close-output-port server-input)])))
 
-;; GAMES HANDLING ;;
+;; HANDLING A GAME SESSION ;;
 
-;; handle-game: Port Port -> void
-; handles the games
-; header: (define (handle-game server-output server-input) void)
+;; handle-game-session: Port Port -> void
+; handles a game session made of multiple games
+; header: (define (handle-game-session server-output server-input) void)
 
 ;; Template
 
-; (define (handle-game server-output server-input)
+; (define (handle-game-session server-output server-input)
+;  (... with-handlers ...
+;    (... CHESS-COLOR ...)
 ;  (cond
-;    [equal? ... set! ...]
-;    [else ... set! ...])
-;  (cond
-;    [string=? ... server-input ... handle-game ...]
-;    [else ... server-input ... disconnect-client ...]))
+;    [string=? ... server-input ...
+;              (... handle-game ...)]
+;    [string=? ... server-input ...
+;              (... disconnect-client ...)]
+;    [else
+;     (... handle-game-session ...)])))
 
-(define (handle-game server-output server-input)
-  (let ((color (read server-output))) ; receives the player's color from the server
-    (displayln (string-append "Playing as " color))
-    (cond
-      ; Black player
-      [(equal? color "Black")
-       (set! CHESS-COLOR "black")]
-      ; White player
-      [else (set! CHESS-COLOR "white")])
-    (displayln "Game ended. Do you want to play again? (yes/no)")
+(define (handle-game-session server-output server-input)
+  (with-handlers
+      ((exn:fail:network?
+        (lambda (exception)
+          (displayln "Connection error")
+          (disconnect-client server-output server-input)
+          (exit))))
+    (let ((color (read server-output)))
+      (displayln (string-append "Playing as " color))
+      (set! CHESS-COLOR color)
+    (displayln "Game ended. Do you want to play again? (yes/no)?")
     (let ((answer (read-line)))
       (cond
         [(string=? answer "yes")
          (write 'continue server-input)
          (flush-output server-input)
-         (handle-game server-output server-input)]
-        [else
+         (handle-game-session server-output server-input)]
+        [(string=? answer "no")
          (write 'quit server-input)
          (flush-output server-input)
-         (disconnect-client server-output server-input)]))))
+         (disconnect-client server-output server-input)]
+        [else
+         (displayln "Invalid answer. Type 'yes' or 'no")
+         (handle-game-session server-output server-input)])))))
 
 ;; STARTING THE CLIENT
 
@@ -181,21 +196,29 @@
 ;; Template
 
 ; (define (start-client)
+;  (... with-handlers ...
 ;  (... connect-ip ...)
 ;  (... connect-to-server ...)
 ;  (cond
-;    [... server-input ... server-output ...]
-;    [else ...]))
+;    [... server-input ... server-output ...
+;     (... handle-game-session ...)]
+;    [else ...])))
+
     
 (define (start-client)
-  (let*
-      ((ip-address (connect-ip))
-       (connection (connect-to-server ip-address 1234)))
-    (let-values
-        (((server-input server-output) connection))
-         (cond
-           [(and server-input server-output)
-            (displayln "Connected to the server")
-            (handle-game server-output server-input)]
-           [else
-            (displayln "Failed to connect to the server")]))))
+  (with-handlers
+      ((exn:fail:network?
+        (lambda (exception)
+          (displayln "Unable to start the client")
+          (exit))))
+  (let
+      ((ip-address (connect-ip)))
+    (define-values (server-input server-output)
+      (connect-to-server ip-address 1234))
+    (cond
+      [(and server-input server-output)
+       (displayln "Connected to the server")
+       (handle-game-session server-output server-input)]
+      [else
+       (displayln "Unable to connect to the server")
+       (exit)]))))
