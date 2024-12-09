@@ -25,24 +25,19 @@
 ;; Template
 
 ; (define (connect-ip)
-;  (cond
-;    [... (... string=? ...) ...]
-;    [else
-;     (... with-handlers ... connect-ip ... (... tcp-connect ...))]))
+;  (... with-handlers ...
+;       ... tcp-connect ...))
 
 (define (connect-ip)
   (displayln "Enter the server IP address (press Enter for localhost)")
   (let ((ip-address (read-line)))
-    (cond
-      [(string=? ip-address "") "localhost"] ; if the player presses Enter, the IP address is the one for localhost
-      [else ; otherwise:
        (with-handlers
            ((exn:fail:network?
              (lambda (exception)
                (displayln "Unable to connect to the server. Please retry") ; there's a connection error and the program asks to retry
                (connect-ip))))
          (tcp-connect ip-address 1234) ; or it tries to connect
-         ip-address)])))
+         ip-address)))
 
 ;; CONNECTING TO THE SERVER ;;
 

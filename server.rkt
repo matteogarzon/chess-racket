@@ -63,7 +63,7 @@
     (with-handlers ; `with-handlers`: built-in function for handling exceptions, that in this case are network errors
         ((exn:fail:network? ; `exn:fail:network?`: checks if an exception is related to the network
           (lambda (exception)
-            "127.0.0.1"))) ; if so, it returns the localhost (127.0.0.1)
+            (exit)))) ; if so, it exits the program
       (begin
         (udp-connect! socket "8.8.8.8" 53) ; `udp-connect!`: connects the socket to the ip address and the port
                                            ; 8.8.8.8 and 53: IP address and port used by DNS, specifically 8.8.8.8 referers to Google's DNS

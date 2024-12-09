@@ -54,13 +54,13 @@ Let’s focus on how the moves for each piece are calculated:
 Let’s focus on each function:
 
 - obtain-ip
-    - It gets the server's IP address by attempting to connect to Google's DNS (8.8.8.8). It the connection fails, it falls back to localhost (127.0.0.1).
+    - It gets the server's IP address by attempting to connect to Google's DNS (8.8.8.8). It the connection fails, it exits the program.
 - connection-management: It announces the connection, and sends the player's color (assigned by the server) to client
 - player-connection: it accepts incoming TCP connections and sets up input/output ports for a player.
 - receive-move: receives and validates moves from players and handles disconnections
 - check-move: validates chess moves using functions from logic.rkt
 - interpret-move
-    - Interprets the moves according to the input
+    - Interprets the moves according to the input, defining how the game state will have to be updated, based on a disconnection, quitting, invalid move or instead a valid move.
 - game-management
     - It manages a single game between the two players, by: validating the moves, updating the game state, handling invalid moves, and managing the game termination
 - close-connection: closes input ports, output ports, and the TCP listener
@@ -89,10 +89,12 @@ Let’s focus on each function:
 A variable CHESS-COLOR is declared to store whether the player’s pieces are black or white. This is done a color is assigned randomly to each player. Let’s focus on the functions: 
 
 - connect-ip
-    - It prompts the user for an IP address, but defaults to "localhost" if the user just presses Enter
+    - It prompts the user for an IP address.
     - It handles connection errors gracefully
 - connect-to-server
     - It establishes the connection to the server using the typed IP and port (1234, randomly chosen)
+- send-move-to-server
+    - Sends the player's moves to the server.
 - receive-move-from-server
     - This function receives the opponent’s moves from the server, converting before-move and after-move into posns (since they were sent as numbers)
     - It also makes sure these move are valid, by using “in-bounds”.
