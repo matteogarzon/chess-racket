@@ -590,6 +590,14 @@
 ;                [else ...]
 ;         [else ...])])))
 
+;; Invert the move for the opponent's perspective
+(define (invert-move move)
+  (let ((before-move (first move))
+        (after-move (second move)))
+    (list (make-posn (- 7 (posn-x before-move)) (- 7 (posn-y before-move)))
+          (make-posn (- 7 (posn-x after-move)) (- 7 (posn-y after-move))))))
+
+;; receive-move-from-server: Port -> Move
 (define (receive-move-from-server server-input)
   (with-handlers
       ((exn:fail:network?
@@ -603,9 +611,11 @@
              (after-move (make-posn (third input-data) (fourth input-data))))
          (cond
            [(and (in-bounds? before-move) (in-bounds? after-move))
-            ;; Apply the opponent's move to the local board
-            (move-piece before-move after-move)
-            (list before-move after-move)]
+            ;; Invert the move for the opponent's perspective
+            (let ((inverted-move (invert-move (list before-move after-move))))
+              ;; Apply the opponent's move to the local board
+              (move-piece (first inverted-move) (second inverted-move))
+              inverted-move)]
            [else 'invalid-move]))]
       [else 'invalid-move]))))
 
