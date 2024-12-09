@@ -18,31 +18,23 @@
 
 ;;;;;;;;; CODE FOR THE CLIENT ;;;;;;;;;;;
 
-;; Function to handle receiving moves
 (define (handle-received-move move-data)
   (when (and (list? move-data) (= (length move-data) 4))
     (let ((from-pos (make-posn (first move-data) (second move-data)))
           (to-pos (make-posn (third move-data) (fourth move-data))))
-      ; Invert coordinates for opponent's perspective
-      (let ((inverted-from (make-posn (- 7 (posn-x from-pos)) 
-                                   (- 7 (posn-y from-pos))))
-            (inverted-to (make-posn (- 7 (posn-x to-pos)) 
-                                 (- 7 (posn-y to-pos)))))
-        ; Update the board with the inverted move
-        (let ((piece-to-move (vector-ref (vector-ref BOARD-VECTOR 
-                                                    (posn-y inverted-from)) 
-                                        (posn-x inverted-from))))
-          (when (piece? piece-to-move)
-            ; Clear source position
-            (vector-set! (vector-ref BOARD-VECTOR (posn-y inverted-from))
-                        (posn-x inverted-from)
-                        0)
-            ; Set destination position
-            (vector-set! (vector-ref BOARD-VECTOR (posn-y inverted-to))
-                        (posn-x inverted-to)
-                        piece-to-move)))))))
+      ; Update the board with the move
+      (let ((piece-to-move (vector-ref (vector-ref BOARD-VECTOR (posn-y from-pos)) 
+                                      (posn-x from-pos))))
+        (when (piece? piece-to-move)
+          ; Clear source position
+          (vector-set! (vector-ref BOARD-VECTOR (posn-y from-pos))
+                      (posn-x from-pos)
+                      0)
+          ; Set destination position
+          (vector-set! (vector-ref BOARD-VECTOR (posn-y to-pos))
+                      (posn-x to-pos)
+                      piece-to-move))))))
 
-;; Function to start listening for moves
 (define (start-move-listener in)
   (thread
    (lambda ()

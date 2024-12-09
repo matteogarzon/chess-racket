@@ -789,39 +789,40 @@
 
 ;; Modify game-management to use the new function
 (define (game-management white-connection black-connection)
-  (let ((white-move (receive-move white-connection "White")))
-    (cond
-      [(or (equal? white-move 'disconnect) (equal? white-move 'quit))
-       (interpret-move white-connection "White"
-                       black-connection "Black"
-                       white-move)]
-      [(and (list? white-move) (= (length white-move) 2)
-            (check-move white-move "White"))
-       (begin
-         (move-piece (first white-move) (second white-move))
-         (write white-move (connection-server-output black-connection))
-         (flush-output (connection-server-output black-connection))
-         (let ((black-move (receive-move black-connection "Black")))
-           (cond
-             [(or (equal? black-move 'disconnect) (equal? black-move 'quit))
-              (interpret-move black-connection "Black"
-                              white-connection "White"
-                              black-move)]
-             [(and (list? black-move) (= (length black-move) 2)
-                   (check-move black-move "Black"))
-              (begin
-                (move-piece (first black-move) (second black-move))
-                (write black-move (connection-server-output white-connection))
-                (flush-output (connection-server-output white-connection))
-                (game-management white-connection black-connection))]
-             [else
-              (write 'invalid-move (connection-server-output black-connection))
-              (flush-output (connection-server-output black-connection))
-              (game-management white-connection black-connection)])))]
-      [else
-       (write 'invalid-move (connection-server-output white-connection))
-       (flush-output (connection-server-output white-connection))
-       (game-management white-connection black-connection)])))
+  (let loop ()
+    (let ((white-move (receive-move white-connection "White")))
+      (cond
+        [(or (equal? white-move 'disconnect) (equal? white-move 'quit))
+         (interpret-move white-connection "White"
+                         black-connection "Black"
+                         white-move)]
+        [(and (list? white-move) (= (length white-move) 2)
+              (check-move white-move "White"))
+         (begin
+           (move-piece (first white-move) (second white-move))
+           (write white-move (connection-server-output black-connection))
+           (flush-output (connection-server-output black-connection))
+           (let ((black-move (receive-move black-connection "Black")))
+             (cond
+               [(or (equal? black-move 'disconnect) (equal? black-move 'quit))
+                (interpret-move black-connection "Black"
+                                white-connection "White"
+                                black-move)]
+               [(and (list? black-move) (= (length black-move) 2)
+                     (check-move black-move "Black"))
+                (begin
+                  (move-piece (first black-move) (second black-move))
+                  (write black-move (connection-server-output white-connection))
+                  (flush-output (connection-server-output white-connection))
+                  (loop))]
+               [else
+                (write 'invalid-move (connection-server-output black-connection))
+                (flush-output (connection-server-output black-connection))
+                (loop)])))]
+        [else
+         (write 'invalid-move (connection-server-output white-connection))
+         (flush-output (connection-server-output white-connection))
+         (loop)]))))
 
 ; End of White player moves
 
