@@ -1409,11 +1409,7 @@
     [else state]))
 
 (define (render state)
-  (cond
-    [(string=? "GAME" GAME-STATE) (render-chessboard state)]
-    [(string=? "END-GAME" GAME-STATE) (render-welcome state)]
-    [(string=? "END-CONFIRMATION" GAME-STATE) (render-exit state)]
-    [else (render-welcome state)]))
+    (string=? "GAME" GAME-STATE) (render-chessboard state))
 
 ; Run the program
 (big-bang INITIAL-STATE
