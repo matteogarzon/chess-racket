@@ -989,6 +989,23 @@
                   (piece-present? piece))
       piece)) ; Return unchanged if present? is true
 
+(define (start-move-listener connection)
+  (thread
+   (lambda ()
+     (let loop ()
+       (let ((move-data (read (connection-server-input connection))))
+         (when (and (list? move-data) (= (length move-data) 4))
+           (let ((from-pos (make-posn (first move-data) (second move-data)))
+                 (to-pos (make-posn (third move-data) (fourth move-data))))
+             ; Invert coordinates for opponent's perspective
+             (let ((inverted-from (make-posn (- 7 (posn-x from-pos)) 
+                                           (- 7 (posn-y from-pos))))
+                   (inverted-to (make-posn (- 7 (posn-x to-pos)) 
+                                         (- 7 (posn-y to-pos)))))
+               ; Update the board with the inverted move
+               (move-piece inverted-from inverted-to))))
+         (loop))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; HANDLE MOUSE EVENTS ;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1379,6 +1396,12 @@
    (/ WINDOW-HEIGHT 2)
    (empty-scene WINDOW-WIDTH WINDOW-HEIGHT "honeydew")))
 
+(define (reset-chessboard)
+  (begin
+    (set! selected-piece #f)
+    (set! selected-pos #f)
+    (set! game-over #f)
+    (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))
 
 ; end-game
 ; also disconnects!!!! + resets the chessboard
@@ -1396,24 +1419,21 @@
      (when server-did-both-connect
        (begin
          (set! GAME-STATE "GAME")
-         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))]
+         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
+         (start-move-listener current-connection)))]
     [(equal? NETWORK-STATE "CLIENT")
      (when client-did-both-connect
        (begin
          (set! GAME-STATE "GAME")
-         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))]))
+         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
+         (start-move-listener current-connection)))]))
 
 (define (exit-game)
- (set! GAME-STATE "END-CONFIRMATION"))
-
-(define BOARD-STATE (vector-copy-deep INITIAL-STATE))
-
-(define (reset-chessboard)
   (begin
-    (set! selected-piece #f)
-    (set! selected-pos #f)
-    (set! game-over #f)
-    (vector-copy! INITIAL-STATE 0 BOARD-STATE)))
+    (set! GAME-STATE "END-CONFIRMATION")
+    (displayln "Exiting the game. Please confirm.")
+    ;; Additional cleanup logic can be added here if needed
+    ))
 
 ;; INPUT/OUTPUT
 ; handle-key: AppState KeyEvent -> AppState
