@@ -657,6 +657,8 @@
 ;    [else
 ;     (... handle-game-session ...)])))
 
+(define GAME-STATE "NO-GAME") ; can be either NO-GAME or GAME
+
 (define (handle-game-session server-output server-input)
   (with-handlers
       ((exn:fail:network?
@@ -667,11 +669,13 @@
     (let ((color (read server-output)))
       (displayln (string-append "Playing as " color))
       (set! CHESS-COLOR color)
-      ;; Remove the immediate move receiving
-      ;; Instead, just return to let the main game loop handle moves
-      (displayln "Game started - waiting for moves...")
-      ;; Let the main game loop continue
-      )))
+      (let ((start-signal (read server-output)))
+        (when (equal? start-signal 'game-start)
+          (begin
+            (displayln "Game is starting...")
+            ;; Initialize the game state
+            (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
+            (set! GAME-STATE "GAME")))))))
 
 ;; STARTING THE CLIENT
 
