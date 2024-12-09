@@ -1380,9 +1380,10 @@
       (set! NETWORK-STATE 'waiting))))
 
 (define (start-game)
-  (begin
-    (set! GAME-STATE "GAME")
-    (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))
+  (when (boolean=? #t server-did-both-connect)
+    (begin
+       (set! GAME-STATE "GAME")
+       (vector-copy! BOARD-VECTOR 0 INITIAL-STATE))))
 
 (define (exit-game)
  (set! GAME-STATE "END-CONFIRMATION"))

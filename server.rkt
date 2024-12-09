@@ -7,6 +7,9 @@
 (require "logic.rkt")
 (require racket/udp)
 (provide start-server)
+(provide server-did-both-connect)
+
+(define server-did-both-connect #f)
 
 ;;;;;;;;;; CODE FOR THE SERVER ;;;;;;;;;;;;;
 
@@ -923,6 +926,7 @@
   (let-values ([(black-connection white-connection) (player-connection listener "Black" "White")])
     (begin
       (displayln "Both players connected - initializing game...")
+      (set! server-did-both-connect #t)
       ;; Initialize game state
       (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
       ;; Start game management
