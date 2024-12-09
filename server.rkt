@@ -768,6 +768,7 @@
 ;    [else
 ;    ... game-management ...])))
 
+;; Update game-management to only handle network communication
 (define (game-management white-connection black-connection)
   (with-handlers
       ((exn:fail:network?
@@ -775,43 +776,36 @@
           (displayln "Connection error. Closing players' connection")
           (close-connection white-connection black-connection #false)
           (exit))))
-  ; Start of White player moves
-  (let ((white-move (receive-move white-connection "White")))
-    (cond
-      [(or (equal? white-move 'disconnect) (equal? white-move 'quit))
-       (interpret-move white-connection "White"
-                       black-connection "Black"
-                       white-move)] ; if the player gets disconnected or quits,
-                                    ; the move is interpreted accordingly, so the game ends
-      [(and (list? white-move) (= (length white-move) 2)
-            (check-move white-move "White")) ; if the move is valid,
-       (begin
-         (move-piece (first white-move) (second white-move)) ; the piece is moved
-         (write white-move (connection-server-input black-connection)) ; and the move is sent to the opponent
-         (flush-output (connection-server-input black-connection)))
-       ; Start of Black player moves
+    ;; Handle white player's move
+    (let ((white-move (receive-move white-connection "White")))
+      (cond
+        [(or (equal? white-move 'disconnect) (equal? white-move 'quit))
+         (interpret-move white-connection "White"
+                        black-connection "Black"
+                        white-move)]
+        [(and (list? white-move) (= (length white-move) 2))
+         (write white-move (connection-server-input black-connection))
+         (flush-output (connection-server-input black-connection))
+         ;; Handle black player's move
          (let ((black-move (receive-move black-connection "Black")))
            (cond
              [(or (equal? black-move 'disconnect) (equal? black-move 'quit))
               (interpret-move black-connection "Black"
-                              white-connection "White"
-                              black-move)]
-             [(and (list? black-move) (= (length black-move) 2)
-                   (check-move black-move "Black"))
-              (begin
-                (move-piece (first black-move) (second black-move))
-                (write black-move (connection-server-input white-connection))
-                (flush-output (connection-server-input white-connection)))
+                             white-connection "White"
+                             black-move)]
+             [(and (list? black-move) (= (length black-move) 2))
+              (write black-move (connection-server-input white-connection))
+              (flush-output (connection-server-input white-connection))
               (game-management white-connection black-connection)]
              [else
               (write 'invalid-move (connection-server-input black-connection))
               (flush-output (connection-server-input black-connection))
               (game-management white-connection black-connection)]))]
-      ; End of Black player moves
-         [else
-          (write 'invalid-move (connection-server-input white-connection))
-          (flush-output (connection-server-input white-connection))
-          (game-management white-connection black-connection)]))))
+        [else
+         (write 'invalid-move (connection-server-input white-connection))
+         (flush-output (connection-server-input white-connection))
+         (game-management white-connection black-connection)]))))
+
 ; End of White player moves
 
 ;; CLOSING THE CONNECTION ;;
