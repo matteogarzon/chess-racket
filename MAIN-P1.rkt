@@ -18,6 +18,9 @@
 (require "logic.rkt")
 (require "server.rkt")
 (require "client.rkt")
+(define GAME-STATE "NO-GAME") ; can be either NO-GAME or GAME
+(define NETWORK-STATE 'waiting)
+(define current-connection #f)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Data type ;;;;;;;;;;
@@ -1015,6 +1018,14 @@
 (define selected-pos #f)
 (define game-over #f)
 
+;; Add the reset-chessboard function
+(define (reset-chessboard)
+  (begin
+    (set! selected-piece #f)
+    (set! selected-pos #f)
+    (set! game-over #f)
+    (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))
+
 ;;;;; handle-move ;;;;;
 
 ;; Implementation
@@ -1283,8 +1294,6 @@
 ; Handles mouse events for piece selection and movement
 ; headeer: (define (handle-mouse state x y event) ...)
 
-(define current-connection #f)  ; Will store the active connection
-
 ;; Implementation
 ;; Add to your handle-mouse function where moves are made
 (define (handle-mouse state x y event)
@@ -1353,8 +1362,6 @@
 ;;MODIFICHE DI MATTEO;;
 ;;;;;;;;;;;;;;;;;;;;;;;
 
-(define GAME-STATE "NO-GAME") ; can be either NO-GAME or GAME
-
 ;; Constants for the welcome screen
 (define WINDOW-WIDTH 512)
 (define WINDOW-HEIGHT 512)
@@ -1362,7 +1369,6 @@
 (define TEXT-BACKGROUND-HEIGHT 80)
 (define TEXT-BACKGROUND-COLOR "lightblue")
 (define TEXT-COLOR "black")
-(define NETWORK-STATE 'waiting)
 
 ;; Create the welcome screen elements
 (define TITLE-TEXT (text "Welcome to Chess!" 40 TEXT-COLOR))
@@ -1396,12 +1402,9 @@
    (/ WINDOW-HEIGHT 2)
    (empty-scene WINDOW-WIDTH WINDOW-HEIGHT "honeydew")))
 
-(define (reset-chessboard)
-  (begin
-    (set! selected-piece #f)
-    (set! selected-pos #f)
-    (set! game-over #f)
-    (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))
+;; Add the exit-game function
+(define (exit-game)
+  (set! GAME-STATE "END-CONFIRMATION"))
 
 ; end-game
 ; also disconnects!!!! + resets the chessboard
@@ -1419,21 +1422,14 @@
      (when server-did-both-connect
        (begin
          (set! GAME-STATE "GAME")
-         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
-         (start-move-listener current-connection)))]
+         (set! current-connection (get-server-connection))
+         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))]
     [(equal? NETWORK-STATE "CLIENT")
      (when client-did-both-connect
        (begin
          (set! GAME-STATE "GAME")
-         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
-         (start-move-listener current-connection)))]))
-
-(define (exit-game)
-  (begin
-    (set! GAME-STATE "END-CONFIRMATION")
-    (displayln "Exiting the game. Please confirm.")
-    ;; Additional cleanup logic can be added here if needed
-    ))
+         (set! current-connection (get-client-connection))
+         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))]))
 
 ;; INPUT/OUTPUT
 ; handle-key: AppState KeyEvent -> AppState
@@ -1454,7 +1450,7 @@
      (begin
        (start-game)
        state)] 
-  [(and (string=? GAME-STATE "NO-GAME") (equal? key "h"))
+    [(and (string=? GAME-STATE "NO-GAME") (equal? key "h"))
      (begin
        (thread (lambda () 
                 (start-server)

@@ -744,16 +744,17 @@
       (cond
         [(and in out)
          (begin
-         (displayln "Connected to the server")
-         (set! client-did-both-connect #t))
-         ; Read the color assignment from server
-         (let ((color (read in)))
-           (displayln (string-append "Playing as " color))
-           (set! CHESS-COLOR color)
-           (let ((start-signal (read in)))
-             (when (equal? start-signal 'game-start)
-               (displayln "Game is starting...")
-               (handle-game-session in out))))]
+           (displayln "Connected to the server")
+           (set! client-connection (make-connection in out))
+           (set! client-did-both-connect #t)
+           ; Read the color assignment from server
+           (let ((color (read in)))
+             (displayln (string-append "Playing as " color))
+             (set! CHESS-COLOR color)
+             (let ((start-signal (read in)))
+               (when (equal? start-signal 'game-start)
+                 (displayln "Game is starting...")
+                 (handle-game-session in out)))))]
         [else
          (displayln "Unable to connect to the server")
          (set! client-did-both-connect #f)
