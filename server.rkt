@@ -773,38 +773,27 @@
   (with-handlers
       ((exn:fail:network?
         (lambda (exception)
-          (displayln "Connection error. Closing players' connection")
+          (displayln "Connection error during game")
           (close-connection white-connection black-connection #false)
           (exit))))
-    ;; Handle white player's move
-    (let ((white-move (receive-move white-connection "White")))
-      (cond
-        [(or (equal? white-move 'disconnect) (equal? white-move 'quit))
-         (interpret-move white-connection "White"
-                        black-connection "Black"
-                        white-move)]
-        [(and (list? white-move) (= (length white-move) 2))
-         (write white-move (connection-server-input black-connection))
-         (flush-output (connection-server-input black-connection))
-         ;; Handle black player's move
-         (let ((black-move (receive-move black-connection "Black")))
-           (cond
-             [(or (equal? black-move 'disconnect) (equal? black-move 'quit))
-              (interpret-move black-connection "Black"
-                             white-connection "White"
-                             black-move)]
-             [(and (list? black-move) (= (length black-move) 2))
-              (write black-move (connection-server-input white-connection))
-              (flush-output (connection-server-input white-connection))
-              (game-management white-connection black-connection)]
-             [else
-              (write 'invalid-move (connection-server-input black-connection))
-              (flush-output (connection-server-input black-connection))
-              (game-management white-connection black-connection)]))]
-        [else
-         (write 'invalid-move (connection-server-input white-connection))
-         (flush-output (connection-server-input white-connection))
-         (game-management white-connection black-connection)]))))
+    (begin
+      ;; Signal game start to both players
+      (write 'game-start (connection-server-output white-connection))
+      (write 'game-start (connection-server-output black-connection))
+      (flush-output (connection-server-output white-connection))
+      (flush-output (connection-server-output black-connection))
+      
+      ;; Initialize game state
+      (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
+      
+      ;; Start the game loop
+      (let game-loop ()
+        (cond
+          [(receive-and-forward-move white-connection black-connection) 
+           (game-loop)]
+          [(receive-and-forward-move black-connection white-connection)
+           (game-loop)]
+          [else (void)])))))
 
 ; End of White player moves
 
@@ -908,15 +897,13 @@
 ;       (... game-session ...)))
 
 (define (multiple-games listener)
-   (with-handlers
-       ((exn:fail:network?
-         (lambda (exception)
-           (displayln "Connection error. Restarting the server")
-           (tcp-close listener)
-           (exit))))
-     (define-values (black-connection white-connection)
-       (player-connection listener "Black" "White"))
-     (game-session black-connection white-connection listener)))
+  (let-values ([(black-connection white-connection) (player-connection listener "Black" "White")])
+    (begin
+      (displayln "Both players connected - initializing game...")
+      ;; Initialize game state
+      (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
+      ;; Start game management
+      (game-management white-connection black-connection))))
   
 ;; STARTING THE SERVER ;;
 

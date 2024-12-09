@@ -665,30 +665,11 @@
     (let ((color (read server-output)))
       (displayln (string-append "Playing as " color))
       (set! CHESS-COLOR color)
-      ;; Remove the big-bang and render calls since that's handled in MAIN-P1.rkt
-      ;; Just handle the network communication here
-      (let ((move (receive-move-from-server server-output)))
-        (cond
-          [(equal? move 'quit)
-           (disconnect-client server-output server-input)]
-          [(equal? move 'invalid-move)
-           (displayln "Invalid move received")]
-          [else
-           (send-move-to-server server-input move)]))
-      (displayln "Game ended. Do you want to play again? (yes/no)?")
-      (let ((answer (read-line)))
-        (cond
-          [(string=? answer "yes")
-           (write 'continue server-input)
-           (flush-output server-input)
-           (handle-game-session server-output server-input)]
-          [(string=? answer "no")
-           (write 'quit server-input)
-           (flush-output server-input)
-           (disconnect-client server-output server-input)]
-          [else
-           (displayln "Invalid answer. Type 'yes' or 'no")
-           (handle-game-session server-output server-input)])))))
+      ;; Remove the immediate move receiving
+      ;; Instead, just return to let the main game loop handle moves
+      (displayln "Game started - waiting for moves...")
+      ;; Let the main game loop continue
+      )))
 
 ;; STARTING THE CLIENT
 
@@ -723,7 +704,10 @@
          (let ((color (read in)))
            (displayln (string-append "Playing as " color))
            (set! CHESS-COLOR color)
-           (handle-game-session in out))]
+           (let ((start-signal (read in)))
+             (when (equal? start-signal 'game-start)
+               (displayln "Game is starting...")
+               (handle-game-session in out))))]
         [else
          (displayln "Unable to connect to the server")
          (exit)]))))
