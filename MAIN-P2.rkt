@@ -18,6 +18,9 @@
 (require "logic.rkt")
 (require "server.rkt")
 (require "client.rkt")
+(define GAME-STATE "NO-GAME") ; can be either NO-GAME or GAME
+(define NETWORK-STATE 'waiting)
+(define current-connection #f)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Data type ;;;;;;;;;;
@@ -69,7 +72,7 @@
 (define TRANSPARENT-CHESSBOARD (rectangle (* 8 SQUARE-SIDE) (* 8 SQUARE-SIDE) "solid" "transparent"))
 
 ; Defining the rows of the chessboard
-; When the first square is color 1
+; When the first square is color 110.21.
 (define CHESSBOARD-ROW-1
   (beside (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-1)
           (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-2)
@@ -497,10 +500,10 @@
 ; Defining INITIAL-STATE
 (define INITIAL-STATE 
   (vector
-    ; Row 0 - White pawns
-    (vector W-ROOK1 W-KNIGHT1 W-BISHOP1 W-QUEEN W-KING W-BISHOP2 W-KNIGHT2 W-ROOK2)
-    
-    ; Row 1 - White Special Pieces row
+    ; Row 0 - White Special Pieces row
+    (vector W-ROOK1 W-KNIGHT1 W-BISHOP1 W-QUEEN W-KING W-BISHOP2 W-KNIGHT2 W-ROOK2)))
+
+    ; Row 1 - White pawns
     (vector W-PAWN1 W-PAWN2 W-PAWN3 W-PAWN4 W-PAWN5 W-PAWN6 W-PAWN7 W-PAWN8)
     
     ; Rows 2-5 - Empty spaces
@@ -513,7 +516,7 @@
     (vector B-PAWN1 B-PAWN2 B-PAWN3 B-PAWN4 B-PAWN5 B-PAWN6 B-PAWN7 B-PAWN8)
     
     ; Row 7 - Black Special Pieces row
-    (vector B-ROOK1 B-KNIGHT1 B-BISHOP1 B-QUEEN B-KING B-BISHOP2 B-KNIGHT2 B-ROOK2)))
+    (vector B-ROOK1 B-KNIGHT1 B-BISHOP1 B-QUEEN B-KING B-BISHOP2 B-KNIGHT2 B-ROOK2)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Functions ;;;;;;;;;;
@@ -676,6 +679,7 @@
                                  (vector W-PAWN1 W-PAWN2 W-PAWN3 W-PAWN4 W-PAWN5 W-PAWN6 W-PAWN7 W-PAWN8)
                                  (vector W-ROOK1 W-KNIGHT1 W-BISHOP1 W-QUEEN 0 W-BISHOP2 W-KNIGHT2 W-ROOK2)))
                          (make-posn 4 4)) ; Expect king at new position
+(check-expect (find-king "black" INITIAL-STATE) (make-posn 4 0))
 
 ;; Implementation
 (define (find-king color state)
@@ -710,14 +714,14 @@
                                       (vector W-ROOK1 W-KNIGHT1 W-BISHOP1 W-QUEEN 0 W-BISHOP2 W-KNIGHT2 W-ROOK2)))
               #f)
 (check-expect (king-in-check? "white" (vector
-                                      (vector W-ROOK1 W-KNIGHT1 W-BISHOP1 W-QUEEN 0 W-BISHOP2 W-KNIGHT2 W-ROOK2)
-                                      (vector W-PAWN1 W-PAWN2 W-PAWN3 W-PAWN4 W-PAWN5 W-PAWN6 W-PAWN7 W-PAWN8)
-                                      (vector 0 0 0 0 0 0 0 0)
-                                      (vector 0 0 0 0 0 0 0 0)
-                                      (vector 0 0 0 0 0 0 0 0)
-                                      (vector 0 0 0 0 W-KING 0 0 0)
+                                      (vector B-ROOK1 B-KNIGHT1 B-BISHOP1 B-QUEEN B-KING B-BISHOP2 B-KNIGHT2 B-ROOK2)
                                       (vector B-PAWN1 B-PAWN2 B-PAWN3 B-PAWN4 B-PAWN5 B-PAWN6 B-PAWN7 B-PAWN8)
-                                      (vector B-ROOK1 B-KNIGHT1 B-BISHOP1 B-QUEEN B-KING B-BISHOP2 B-KNIGHT2 B-ROOK2)))
+                                      (vector 0 0 0 0 W-KING 0 0 0)
+                                      (vector 0 0 0 0 0 0 0 0)
+                                      (vector 0 0 0 0 0 0 0 0)
+                                      (vector 0 0 0 0 0 0 0 0)
+                                      (vector W-PAWN1 W-PAWN2 W-PAWN3 W-PAWN4 W-PAWN5 W-PAWN6 W-PAWN7 W-PAWN8)
+                                      (vector W-ROOK1 W-KNIGHT1 W-BISHOP1 W-QUEEN 0 W-BISHOP2 W-KNIGHT2 W-ROOK2)))
               #t)
 
 ;; Implementation
@@ -988,6 +992,23 @@
                   (piece-present? piece))
       piece)) ; Return unchanged if present? is true
 
+(define (start-move-listener connection)
+  (thread
+   (lambda ()
+     (let loop ()
+       (let ((move-data (read (connection-server-input connection))))
+         (when (and (list? move-data) (= (length move-data) 4))
+           (let ((from-pos (make-posn (first move-data) (second move-data)))
+                 (to-pos (make-posn (third move-data) (fourth move-data))))
+             ; Invert coordinates for opponent's perspective
+             (let ((inverted-from (make-posn (- 7 (posn-x from-pos)) 
+                                           (- 7 (posn-y from-pos))))
+                   (inverted-to (make-posn (- 7 (posn-x to-pos)) 
+                                         (- 7 (posn-y to-pos)))))
+               ; Update the board with the inverted move
+               (move-piece inverted-from inverted-to))))
+         (loop))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; HANDLE MOUSE EVENTS ;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -996,6 +1017,14 @@
 (define selected-piece #f)
 (define selected-pos #f)
 (define game-over #f)
+
+;; Add the reset-chessboard function
+(define (reset-chessboard)
+  (begin
+    (set! selected-piece #f)
+    (set! selected-pos #f)
+    (set! game-over #f)
+    (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))
 
 ;;;;; handle-move ;;;;;
 
@@ -1057,9 +1086,9 @@
                                          KING-QUEEN-MOVES
                                          #t ; repeatable?
                                          2  ; player (2 for white)
-                                         "black"
+                                         "white"
                                          #f ; selected?
-                                         B-QUEEN-IMAGE
+                                         W-QUEEN-IMAGE
                                          queen-width
                                          queen-height
                                          #t))) ; present?
@@ -1092,7 +1121,7 @@
                                  (vector 0 0 0 0 0 0 0 0)
                                  (vector W-PAWN1 W-PAWN2 W-PAWN3 W-PAWN4 W-PAWN5 W-PAWN6 W-PAWN7 W-PAWN8)
                                  (vector W-ROOK1 W-KNIGHT1 W-BISHOP1 W-QUEEN W-KING W-BISHOP2 W-KNIGHT2 W-ROOK2)))
-              '())
+              (list (make-posn 0 5) (make-posn 0 4)))
 
 ; a rook at starting position shouldn't be able to move
 (check-expect (get-valid-moves W-ROOK1 (make-posn 0 7) (vector
@@ -1110,16 +1139,16 @@
 (define (get-valid-moves piece pos state)
   (let ([moves
          (cond
-    [(equal? (piece-type piece) "pawn")
+     [(equal? (piece-type piece) "pawn")
  (let* ([row (posn-y pos)]
         [col (posn-x pos)]
-        [direction (if (equal? (piece-color piece) "white") 1 -1)]
+        [direction (if (equal? (piece-color piece) "black") -1 1)] ; Change direction for black pawns
         [one-square (make-posn col (+ row direction))]
         [two-squares (make-posn col (+ row (* 2 direction)))]
         [capture-left (make-posn (- col 1) (+ row direction))]
         [capture-right (make-posn (+ col 1) (+ row direction))]
-        [starting-row? (or (and (equal? (piece-color piece) "white") (= row 1))
-                          (and (equal? (piece-color piece) "black") (= row 6)))]
+        [starting-row? (or (and (equal? (piece-color piece) "black") (= row 6))
+                          (and (equal? (piece-color piece) "white") (= row 1)))]
         [can-move-one? (and (in-bounds? one-square)
                            (not (piece? (vector-ref (vector-ref state (posn-y one-square)) 
                                                   (posn-x one-square)))))]
@@ -1260,65 +1289,63 @@
 ; headeer: (define (handle-mouse state x y event) ...)
 
 ;; Implementation
+;; Add to your handle-mouse function where moves are made
+;; handle-mouse: AppState Number Number MouseEvent -> AppState
+;; Handles mouse clicks to select and move pieces for the black player
+;; handle-mouse: AppState Number Number MouseEvent -> AppState
+;; Handles mouse clicks to select and move pieces for the black player
 (define (handle-mouse state x y event)
-  (if game-over
-      state  ; If game is over, don't allow any more moves
-      (cond
-        [(equal? event "button-down")
-         (let* ([clicked-pos (which-square? x y)]
-                [row (posn-y clicked-pos)]
-                [col (posn-x clicked-pos)]
-                [clicked-piece (vector-ref (vector-ref state row) col)])
-           (cond
-             ; If we have a selected piece and clicked on a valid move position
-             [(and selected-piece 
-                   (member clicked-pos (get-valid-moves selected-piece selected-pos state)))
-              (begin
-                (let ([new-state (handle-move state clicked-pos)])
-                  ; Deselect the piece after moving it
-                  (vector-set! (vector-ref new-state (posn-y clicked-pos)) (posn-x clicked-pos)
-                             (struct-copy piece (vector-ref (vector-ref new-state (posn-y clicked-pos)) 
-                                                          (posn-x clicked-pos))
-                                        [selected? #f]))
-                  (set! selected-piece #f)
-                  (set! selected-pos #f)
-                  new-state))]
-             ; If we clicked on a black piece
-             [(and (piece? clicked-piece)
-                   (piece-present? clicked-piece)
-                   (equal? (piece-color clicked-piece) "black"))
-              (begin
-                ; Deselect previously selected piece if any
-                (when (and selected-piece selected-pos)
-                  (vector-set! (vector-ref state (posn-y selected-pos)) (posn-x selected-pos)
-                             (struct-copy piece (vector-ref (vector-ref state (posn-y selected-pos))
+  (cond
+    [(and (string=? GAME-STATE "GAME") (mouse=? event "button-down"))
+     (let* ((clicked-pos (make-posn (floor (/ x SQUARE-SIDE)) (floor (/ y SQUARE-SIDE))))
+            (clicked-piece (vector-ref (vector-ref state (posn-y clicked-pos)) (posn-x clicked-pos))))
+       (cond
+         ;; If a piece is already selected, attempt to move it
+         [selected-piece
+          (let ((from-pos selected-pos))
+            ;; Send move to server
+            (write (list (posn-x from-pos) (posn-y from-pos)
+                         (posn-x clicked-pos) (posn-y clicked-pos))
+                   (connection-server-output current-connection))
+            (flush-output (connection-server-output current-connection))
+            ;; Update local board
+            (vector-set! (vector-ref state (posn-y clicked-pos))
+                         (posn-x clicked-pos)
+                         selected-piece)
+            (vector-set! (vector-ref state (posn-y from-pos))
+                         (posn-x from-pos)
+                         0)
+            ;; Deselect the piece
+            (vector-set! (vector-ref state (posn-y clicked-pos)) (posn-x clicked-pos)
+                         (struct-copy piece selected-piece [selected? #f]))
+            (set! selected-piece #f)
+            (set! selected-pos #f)
+            state)]
+         ;; If no piece is selected, select the piece if it's the player's color
+         [(and (piece? clicked-piece)
+               (piece-present? clicked-piece)
+               (equal? (piece-color clicked-piece) "black")) ; Black player
+          (begin
+            ;; Deselect previously selected piece if any
+            (when (and selected-piece selected-pos)
+              (vector-set! (vector-ref state (posn-y selected-pos)) (posn-x selected-pos)
+                           (struct-copy piece (vector-ref (vector-ref state (posn-y selected-pos))
                                                           (posn-x selected-pos))
                                         [selected? #f])))
-                ; Select new piece
-                (vector-set! (vector-ref state row) col
-                           (struct-copy piece clicked-piece [selected? #t]))
-                (set! selected-piece clicked-piece)
-                (set! selected-pos clicked-pos)
-                state)]
-             ; If we clicked elsewhere, deselect
-             [else
-              (begin
-                ; Deselect previously selected piece if any
-                (when (and selected-piece selected-pos)
-                  (vector-set! (vector-ref state (posn-y selected-pos)) (posn-x selected-pos)
-                             (struct-copy piece (vector-ref (vector-ref state (posn-y selected-pos)) 
-                                                          (posn-x selected-pos))
-                                        [selected? #f])))
-                (set! selected-piece #f)
-                (set! selected-pos #f)
-                state)]))]
-        [else state])))
+            ;; Select the new piece
+            (set! selected-piece clicked-piece)
+            (set! selected-pos clicked-pos)
+            ;; Mark the piece as selected
+            (vector-set! (vector-ref state (posn-y clicked-pos)) (posn-x clicked-pos)
+                         (struct-copy piece clicked-piece [selected? #t]))
+            state)]
+         ;; If clicked position is out of bounds or invalid, return state unchanged
+         [else state]))]
+    [else state]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;;MODIFICHE DI MATTEO;;
 ;;;;;;;;;;;;;;;;;;;;;;;
-
-(define GAME-STATE "NO-GAME") ; can be either NO-GAME or GAME
 
 ;; Constants for the welcome screen
 (define WINDOW-WIDTH 512)
@@ -1327,7 +1354,6 @@
 (define TEXT-BACKGROUND-HEIGHT 80)
 (define TEXT-BACKGROUND-COLOR "lightblue")
 (define TEXT-COLOR "black")
-(define NETWORK-STATE 'waiting)
 
 ;; Create the welcome screen elements
 (define TITLE-TEXT (text "Welcome to Chess!" 40 TEXT-COLOR))
@@ -1361,28 +1387,52 @@
    (/ WINDOW-HEIGHT 2)
    (empty-scene WINDOW-WIDTH WINDOW-HEIGHT "honeydew")))
 
+;; Add the exit-game function
+(define (exit-game)
+  (set! GAME-STATE "END-CONFIRMATION"))
 
 ; end-game
 ; also disconnects!!!! + resets the chessboard
 (define (end-game)
- (begin
-   (set! GAME-STATE "NO-GAME")
-   (reset-chessboard)))
+  (begin
+    (set! GAME-STATE "NO-GAME")
+    (reset-chessboard)
+    (when (or (equal? NETWORK-STATE "SERVER")
+              (equal? NETWORK-STATE "CLIENT"))
+      (set! NETWORK-STATE 'waiting))))
 
 (define (start-game)
- (set! GAME-STATE "GAME"))
-
-(define (exit-game)
- (set! GAME-STATE "END-CONFIRMATION"))
-
-(define BOARD-STATE (vector-copy-deep INITIAL-STATE))
-
-(define (reset-chessboard)
-  (begin
-    (set! selected-piece #f)
-    (set! selected-pos #f)
-    (set! game-over #f)
-    (vector-copy! INITIAL-STATE 0 BOARD-STATE)))
+  (cond
+    [(equal? NETWORK-STATE "SERVER")
+     (when server-did-both-connect
+       (begin
+         (set! GAME-STATE "GAME")
+         (set! current-connection (get-server-connection))
+         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
+         ; Add move listener thread
+         (thread 
+          (lambda ()
+            (let loop ()
+              (when (string=? GAME-STATE "GAME")
+                (let ((move (receive-move-from-server 
+                            (connection-server-input current-connection))))
+                  (when (not (equal? move 'invalid-move))
+                    (loop)))))))))]
+    [(equal? NETWORK-STATE "CLIENT")
+     (when client-did-both-connect
+       (begin
+         (set! GAME-STATE "GAME")
+         (set! current-connection (get-client-connection))
+         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
+         ; Add move listener thread
+         (thread 
+          (lambda ()
+            (let loop ()
+              (when (string=? GAME-STATE "GAME")
+                (let ((move (receive-move-from-server 
+                            (connection-server-input current-connection))))
+                  (when (not (equal? move 'invalid-move))
+                    (loop)))))))))]))
 
 ;; INPUT/OUTPUT
 ; handle-key: AppState KeyEvent -> AppState
@@ -1391,28 +1441,54 @@
 
 (define (handle-key state key)
   (cond
-    [(and (string=? GAME-STATE "GAME" ) (string=? key "q")) (begin (exit-game) state)] ; shows exit prompt (doesn't end game!)
-    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "y")) (begin (end-game) state)] ; ends game + disconnects? 
-    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "n")) (begin (start-game) state)] ; resumes game
-    [(and (string=? GAME-STATE "NO-GAME") (string=? key "g")) (begin (start-game) state)] ; starts game
-    [(and (equal? NETWORK-STATE 'waiting) (equal? key "h"))
+    [(and (string=? GAME-STATE "GAME" ) (string=? key "q")) ; shows exit prompt
      (begin
-       (start-server)
-       (set! NETWORK-STATE 'connected)
-       (exit))]
-    [(and (equal? NETWORK-STATE 'waiting) (equal? key "j"))
+       (exit-game)
+       state)] 
+    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "y")) ; ends game
      (begin
-       (start-client)
-        (set! NETWORK-STATE 'connected)
-       (exit))]
+       (end-game)
+       state)] 
+    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "n")) ; resumes game
+     (begin
+       (start-game)
+       state)] 
+    [(and (string=? GAME-STATE "NO-GAME") (equal? key "h"))
+     (begin
+       (thread (lambda () 
+                (start-server)
+                ; Set the connection after server starts
+                (set! current-connection (get-server-connection))))
+       (set! NETWORK-STATE "SERVER")
+       (start-game)
+       state)]
+    [(and (string=? GAME-STATE "NO-GAME") (equal? key "j"))
+     (begin
+       (thread (lambda () 
+                (start-client)
+                ; Set the connection after client starts
+                (set! current-connection (get-client-connection))))
+       (set! NETWORK-STATE "CLIENT")
+       (start-game)
+       state)]
     [else state]))
 
 (define (render state)
   (cond
-    [(string=? "GAME" GAME-STATE) (render-chessboard state)]
-    [(string=? "END-GAME" GAME-STATE) (render-welcome state)]
-    [(string=? "END-CONFIRMATION" GAME-STATE) (render-exit state)]
-    [else (render-welcome state)]))
+    [(string=? "GAME" GAME-STATE) 
+     (render-chessboard state)]
+    [(and (equal? NETWORK-STATE "SERVER") server-did-both-connect)
+     (begin
+       (start-game)
+       (render-chessboard state))]
+    [(and (equal? NETWORK-STATE "CLIENT") client-did-both-connect)
+     (begin
+       (start-game)
+       (render-chessboard state))]
+    [(string=? "END-CONFIRMATION" GAME-STATE) 
+     (render-exit state)]
+    [else 
+     (render-welcome state)]))
 
 ; Run the program
 (big-bang INITIAL-STATE

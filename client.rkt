@@ -11,6 +11,7 @@
 (define client-did-both-connect #f)
 (provide CHESS-COLOR)
 (provide client-did-both-connect)
+(provide receive-move-from-server)
 (provide start-client)
 (require 2htdp/universe)
 (require "logic.rkt")

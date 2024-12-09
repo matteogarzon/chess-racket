@@ -1306,53 +1306,60 @@
                 [col (posn-x clicked-pos)]
                 [clicked-piece (vector-ref (vector-ref state row) col)])
            (cond
+             ;; If a piece is already selected and the move is valid
              [(and selected-piece 
                    (member clicked-pos (get-valid-moves selected-piece selected-pos state)))
-              (begin
-                (let ([new-state (handle-move state clicked-pos)])
-                  ; Send move to other player
-                  (when current-connection
-                    (write (list (posn-x selected-pos) 
+              (let ([new-state (handle-move state clicked-pos)])
+                ;; Send move to other player
+                (when current-connection
+                  (write (list (posn-x selected-pos) 
                                (posn-y selected-pos)
                                (posn-x clicked-pos)
                                (posn-y clicked-pos))
-                          (connection-server-output current-connection))
-                    (flush-output (connection-server-output current-connection)))
-                  ; Deselect the piece after moving it
-                  (vector-set! (vector-ref new-state (posn-y clicked-pos)) 
+                         (connection-server-output current-connection))
+                  (flush-output (connection-server-output current-connection)))
+                ;; Update local board
+                (vector-set! (vector-ref new-state (posn-y clicked-pos))
                              (posn-x clicked-pos)
-                             (struct-copy piece (vector-ref (vector-ref new-state (posn-y clicked-pos)) 
-                                                          (posn-x clicked-pos))
-                                        [selected? #f]))
-                  (set! selected-piece #f)
-                  (set! selected-pos #f)
-                  new-state))]
-             ; If we clicked on our own piece (only white pieces)
+                             selected-piece)
+                (vector-set! (vector-ref new-state (posn-y selected-pos))
+                             (posn-x selected-pos)
+                             0)
+                ;; Deselect the piece after moving it
+                (vector-set! (vector-ref new-state (posn-y clicked-pos))
+                             (posn-x clicked-pos)
+                             (struct-copy piece (vector-ref (vector-ref new-state (posn-y clicked-pos))
+                                                            (posn-x clicked-pos))
+                                          [selected? #f]))
+                (set! selected-piece #f)
+                (set! selected-pos #f)
+                new-state)]
+             ;; If we clicked on our own piece (only white pieces)
              [(and (piece? clicked-piece) 
                    (piece-present? clicked-piece)
                    (equal? (piece-color clicked-piece) "white")) ; Only allow white pieces
               (begin
-                ; Deselect previously selected piece if any
+                ;; Deselect previously selected piece if any
                 (when (and selected-piece selected-pos)
                   (vector-set! (vector-ref state (posn-y selected-pos)) (posn-x selected-pos)
-                             (struct-copy piece (vector-ref (vector-ref state (posn-y selected-pos)) 
-                                                          (posn-x selected-pos))
-                                        [selected? #f])))
-                ; Select new piece
+                               (struct-copy piece (vector-ref (vector-ref state (posn-y selected-pos)) 
+                                                              (posn-x selected-pos))
+                                            [selected? #f])))
+                ;; Select new piece
                 (vector-set! (vector-ref state row) col
-                           (struct-copy piece clicked-piece [selected? #t]))
+                             (struct-copy piece clicked-piece [selected? #t]))
                 (set! selected-piece clicked-piece)
                 (set! selected-pos clicked-pos)
                 state)]
-             ; If we clicked elsewhere, deselect
+             ;; If we clicked elsewhere, deselect
              [else
               (begin
-                ; Deselect previously selected piece if any
+                ;; Deselect previously selected piece if any
                 (when (and selected-piece selected-pos)
                   (vector-set! (vector-ref state (posn-y selected-pos)) (posn-x selected-pos)
-                             (struct-copy piece (vector-ref (vector-ref state (posn-y selected-pos)) 
-                                                          (posn-x selected-pos))
-                                        [selected? #f])))
+                               (struct-copy piece (vector-ref (vector-ref state (posn-y selected-pos)) 
+                                                              (posn-x selected-pos))
+                                            [selected? #f])))
                 (set! selected-piece #f)
                 (set! selected-pos #f)
                 state)]))]
@@ -1423,13 +1430,31 @@
        (begin
          (set! GAME-STATE "GAME")
          (set! current-connection (get-server-connection))
-         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))]
+         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
+         ; Add move listener thread
+         (thread 
+          (lambda ()
+            (let loop ()
+              (when (string=? GAME-STATE "GAME")
+                (let ((move (receive-move-from-server 
+                            (connection-server-input current-connection))))
+                  (when (not (equal? move 'invalid-move))
+                    (loop)))))))))]
     [(equal? NETWORK-STATE "CLIENT")
      (when client-did-both-connect
        (begin
          (set! GAME-STATE "GAME")
          (set! current-connection (get-client-connection))
-         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))]))
+         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
+         ; Add move listener thread
+         (thread 
+          (lambda ()
+            (let loop ()
+              (when (string=? GAME-STATE "GAME")
+                (let ((move (receive-move-from-server 
+                            (connection-server-input current-connection))))
+                  (when (not (equal? move 'invalid-move))
+                    (loop)))))))))]))
 
 ;; INPUT/OUTPUT
 ; handle-key: AppState KeyEvent -> AppState
