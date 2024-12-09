@@ -384,17 +384,20 @@
     (local ; reset-board: ->void
       ((define (reset-board)
          (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))
+      (begin
+        (reset-board)
     (game-management white-connection black-connection)
     (displayln "Game ended. Do you want to play again? (yes/no)")
     (let ((answer (read-line))) ; `read-line`: built-in function that reads what the player writes
       (cond
         [(string=? answer "yes")
+         (reset-board)
          (game-session black-connection white-connection listener)]
         [(string=? answer "no")
          (close-connection white-connection black-connection listener)]
         [else
          (displayln "Invalid answer. Type 'yes' or 'no'")
-         (game-session black-connection white-connection listener)]))))
+         (game-session black-connection white-connection listener)]))))))
 
 ;; ALLOWING MULTIPLE GAMES ;;
 
