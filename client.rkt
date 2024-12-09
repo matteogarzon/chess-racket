@@ -208,7 +208,7 @@
   (let
       ((ip-address (connect-ip)))
     (define-values (server-input server-output)
-      (connect-to-server ip-address 1234))
+      (tcp-connect ip-address 1234))
     (cond
       [(and server-input server-output)
        (displayln "Connected to the server")
