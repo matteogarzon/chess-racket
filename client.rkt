@@ -156,27 +156,36 @@
 ;    [else
 ;     (... handle-game-session ...)])))
 
-(define (handle-game-session in out)
+(define (handle-game-session server-output server-input)
   (with-handlers
       ((exn:fail:network?
         (lambda (exception)
           (displayln "Connection error")
-          (disconnect-client in out)
+          (disconnect-client server-output server-input)
           (exit))))
-    (displayln "Game ended. Do you want to play again? (yes/no)?")
-    (let ((answer (read-line)))
-      (cond
-        [(string=? answer "yes")
-         (write 'continue out)
-         (flush-output out)
-         (handle-game-session in out)]
-        [(string=? answer "no")
-         (write 'quit out)
-         (flush-output out)
-         (disconnect-client in out)]
-        [else
-         (displayln "Invalid answer. Type 'yes' or 'no")
-         (handle-game-session in out)]))))
+    (let ((color (read server-output)))
+      (displayln (string-append "Playing as " color))
+      (set! CHESS-COLOR color)
+      ;; Actually play the game first
+      (big-bang INITIAL-STATE
+        (name "Chess")
+        (on-mouse handle-mouse)
+        (to-draw render))
+      ;; After game ends, ask about playing again
+      (displayln "Game ended. Do you want to play again? (yes/no)?")
+      (let ((answer (read-line)))
+        (cond
+          [(string=? answer "yes")
+           (write 'continue server-input)
+           (flush-output server-input)
+           (handle-game-session server-output server-input)]
+          [(string=? answer "no")
+           (write 'quit server-input)
+           (flush-output server-input)
+           (disconnect-client server-output server-input)]
+          [else
+           (displayln "Invalid answer. Type 'yes' or 'no")
+           (handle-game-session server-output server-input)])))))
 
 ;; STARTING THE CLIENT
 
