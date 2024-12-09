@@ -739,6 +739,29 @@
 
 (check-expect (interpret-move C1 "White" C2 "Black" 'quit) #false)
 
+;; receive-and-forward-move: Connection Connection -> Boolean
+;; Receives a move from the source connection and forwards it to the target connection
+;; Returns #t if game should continue, #f if game should end
+(define (receive-and-forward-move source-connection target-connection)
+  (with-handlers
+      ((exn:fail:network?
+        (lambda (exception)
+          (displayln (string-append "Connection error with " (connection-color source-connection) " player"))
+          (close-connection source-connection target-connection #false)
+          #f)))
+    
+    (let ((move (receive-move source-connection (connection-color source-connection))))
+      (cond
+        [(equal? move 'disconnect) #f]
+        [(equal? move 'quit) #f]
+        [(equal? move 'invalid-move) #t]
+        [else
+         (begin
+           ;; Forward the move to the other player
+           (write move (connection-server-output target-connection))
+           (flush-output (connection-server-output target-connection))
+           #t)]))))
+
 ;; MANAGING A SINGLE GAME ;;
 
 ;; game-management: Connection Connection -> void
