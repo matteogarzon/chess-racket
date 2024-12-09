@@ -1396,25 +1396,36 @@
 ; modify state 's' in response to 'key' being pressed
 ; header: (define (handle-key s key) s)
 
-
-
 (define (handle-key state key)
   (cond
-    [(and (string=? GAME-STATE "GAME" ) (string=? key "q")) (begin (exit-game) state)] ; shows exit prompt (doesn't end game!)
-    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "y")) (begin (end-game) state)] ; ends game + disconnects? 
-    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "n")) (begin (start-game) state)] ; resumes game
-    [(and (string=? GAME-STATE "NO-GAME") (string=? key "g")) (begin (start-game) state)] ; starts game
-    [(and (equal? NETWORK-STATE 'waiting) (equal? key "h"))
+    [(and (string=? GAME-STATE "GAME" ) (string=? key "q")) ; shows exit prompt (doesn't end game!)
+     (begin
+       (exit-game)
+       state)] 
+    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "y")) ; ends game + disconnects? 
+     (begin
+ ;      (cond
+ ;        [(string=? NETWORK-STATE "SERVER") ]
+ ;        [(string=? NETWORK-STATE "CLIENT")]
+       (end-game)
+       state)] 
+    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "n")) ; resumes game
+     (begin
+       (start-game)
+       state)] 
+    [(and (string=? GAME-STATE "NO-GAME") (equal? key "h")) ; starts game
      (begin
        (start-server)
-       (set! NETWORK-STATE 'connected)
-       (exit))]
+       (set! NETWORK-STATE "SERVER")
+       (start-game)
+       state)] ;;;; cosa fa exit?
     [(and (equal? NETWORK-STATE 'waiting) (equal? key "j"))
      (begin
        (start-client)
         (set! NETWORK-STATE 'connected)
        (exit))]
     [else state]))
+
 
 (define (render state)
   (cond
