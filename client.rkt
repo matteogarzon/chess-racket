@@ -4,12 +4,14 @@
 (require racket/tcp)
 (require 2htdp/image)
 (require racket/base)
+
+(define CHESS-COLOR "White") ;; default
+(define client-did-both-connect #f)
+(provide CHESS-COLOR)
+(provide client-did-both-connect)
 (provide start-client)
 (require 2htdp/universe)
 (require "logic.rkt")
-
-(provide CHESS-COLOR)
-(define CHESS-COLOR "White") ;; default
 
 ;;;;;;;;; CODE FOR THE CLIENT ;;;;;;;;;;;
 
@@ -699,7 +701,9 @@
         (tcp-connect ip-address 1234))
       (cond
         [(and in out)
+         (begin
          (displayln "Connected to the server")
+         (set! client-did-both-connect #t))
          ; Read the color assignment from server
          (let ((color (read in)))
            (displayln (string-append "Playing as " color))
@@ -710,4 +714,5 @@
                (handle-game-session in out))))]
         [else
          (displayln "Unable to connect to the server")
+         (set! client-did-both-connect #f)
          (exit)]))))
