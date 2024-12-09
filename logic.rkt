@@ -26,6 +26,9 @@
 (require 2htdp/universe)
 (provide piece-color)
 (provide piece)
+(provide INITIAL-STATE)
+(provide BOARD-VECTOR)
+(provide make-posn)
 
 ; Types of Moves
 (define DIAGONAL-MOVES (list (make-posn 1 1) (make-posn 1 -1) (make-posn -1 1) (make-posn -1 -1)))
