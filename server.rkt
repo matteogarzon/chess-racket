@@ -601,6 +601,7 @@
           (exit))))
     (begin
       (displayln (string-append color " is connected")) ; Make sure this line executes
+      (set! server-did-both-connect #t)
       (write color server-output) ; Send player's color to the client
       (flush-output server-output) ; Ensure the data is sent immediately
       (make-connection server-input server-output color))))
@@ -634,6 +635,7 @@
                               (connection-management in out second-color))])
       (begin
         (displayln "Both players connected")
+        (set! server-did-both-connect #t)
         (values first-connection second-connection)))))
       
 ;; RECEIVING PLAYER'S MOVES ;;
