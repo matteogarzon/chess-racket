@@ -1380,9 +1380,17 @@
       (set! NETWORK-STATE 'waiting))))
 
 (define (start-game)
-    (begin
-       (set! GAME-STATE "GAME")
-       (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))
+  (cond
+    [(equal? NETWORK-STATE "SERVER")
+     (when server-did-both-connect
+       (begin
+         (set! GAME-STATE "GAME")
+         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))]
+    [(equal? NETWORK-STATE "CLIENT")
+     (when client-did-both-connect
+       (begin
+         (set! GAME-STATE "GAME")
+         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))]))
 
 (define (exit-game)
  (set! GAME-STATE "END-CONFIRMATION"))
@@ -1429,12 +1437,22 @@
        state)]
     [else state]))
 
-
 (define (render state)
   (cond
-    [(and (string=? "GAME" GAME-STATE) (or (boolean=? #true server-did-both-connect) (boolean=? #true client-did-both-connect))) (render-chessboard state)]
-    [(string=? "END-CONFIRMATION" GAME-STATE) (render-exit state)]
-    [else (render-welcome state)]))
+    [(string=? "GAME" GAME-STATE) 
+     (render-chessboard state)]
+    [(and (equal? NETWORK-STATE "SERVER") server-did-both-connect)
+     (begin
+       (start-game)
+       (render-chessboard state))]
+    [(and (equal? NETWORK-STATE "CLIENT") client-did-both-connect)
+     (begin
+       (start-game)
+       (render-chessboard state))]
+    [(string=? "END-CONFIRMATION" GAME-STATE) 
+     (render-exit state)]
+    [else 
+     (render-welcome state)]))
 
 ; Run the program
 (big-bang INITIAL-STATE
