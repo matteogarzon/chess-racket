@@ -590,22 +590,23 @@
 ;                [else ...]
 ;         [else ...])])))
 
-(define (receive-move-from-server server-input) ; Changed parameter name from server-output to server-input
+(define (receive-move-from-server server-input)
   (with-handlers
       ((exn:fail:network?
         (lambda (exception)
           (displayln "Disconnected from the server")
           (exit))))
-  (let ((input-data (read server-input))) ; Changed to read from server-input instead of server-output
+  (let ((input-data (read server-input)))
     (cond
       [(and (list? input-data) (= (length input-data) 4))
-       (let                                         
-        ((before-move (make-posn (first input-data) (second input-data)))
-        (after-move (make-posn (third input-data) (fourth input-data))))
-          (cond
-            [(and (in-bounds? before-move) (in-bounds? after-move))
-                  (list before-move after-move)]
-            [else 'invalid-move]))]
+       (let ((before-move (make-posn (first input-data) (second input-data)))
+             (after-move (make-posn (third input-data) (fourth input-data))))
+         (cond
+           [(and (in-bounds? before-move) (in-bounds? after-move))
+            ;; Apply the opponent's move to the local board
+            (move-piece before-move after-move)
+            (list before-move after-move)]
+           [else 'invalid-move]))]
       [else 'invalid-move]))))
 
 ;; DISCONNECTING THE CLIENT FROM THE SERVER ;;
