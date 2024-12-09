@@ -1396,6 +1396,8 @@
 ; modify state 's' in response to 'key' being pressed
 ; header: (define (handle-key s key) s)
 
+
+
 (define (handle-key state key)
   (cond
     [(and (string=? GAME-STATE "GAME" ) (string=? key "q")) (begin (exit-game) state)] ; shows exit prompt (doesn't end game!)
