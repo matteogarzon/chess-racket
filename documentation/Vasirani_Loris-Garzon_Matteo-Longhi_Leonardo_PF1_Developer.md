@@ -54,9 +54,9 @@ Let’s focus on how the moves for each piece are calculated:
 Let’s focus on each function:
 
 - obtain-ip
-    - It gets the server's IP address by attempting to connect to Google's DNS (8.8.8.8). It the connection fails, it exits the program.
+    - It gets the server's IP address by attempting to connect to Google's DNS (8.8.8.8). If the connection fails, it exits the program.
 - connection-management: It announces the connection, and sends the player's color (assigned by the server) to client
-- player-connection: it accepts incoming TCP connections and sets up input/output ports for a player.
+- player-connection: it accepts incoming TCP connections and sets up input/output ports for the players.
 - receive-move: receives and validates moves from players and handles disconnections
 - check-move: validates chess moves using functions from logic.rkt
 - interpret-move
@@ -64,6 +64,8 @@ Let’s focus on each function:
 - game-management
     - It manages a single game between the two players, by: validating the moves, updating the game state, handling invalid moves, and managing the game termination
 - close-connection: closes input ports, output ports, and the TCP listener
+- game-session
+    - Handles a game session composed by multiple games between the same players.
 - multiple-games
     - Handles multiple game sessions, by waiting for the player connection, asking the user to play again, and therefore managing game restarts
 - start-server

@@ -83,32 +83,55 @@
 ;; Template
 
 ; (define (connection-management server-input server-output color)
-;    (... color ... server-output ...)
-;    (... server-input ... server-output ... color ...))
+;  (... with-handlers...
+;  (begin
+; (... color ... server-output ...)
+; (... server-input ... server-output ... color ...))
 
 (define (connection-management server-input server-output color)
+  (with-handlers
+      ((exn:fail:network?
+        (lambda (exception)
+          (displayln (string-append "Connection error for the " color " player"))
+          (close-input-port server-input)
+          (close-output-port server-output)
+          (exit))))
+    (begin
     (displayln (string-append color " is connected")) ; `displayln`: "White is connected" or "Black is connected"
   (write color server-output) ; sends player's color to the client
   (flush-output server-output)
-    (make-connection server-input server-output color))
+    (make-connection server-input server-output color))))
 
 ;; PLAYER'S CONNECTION ;;
 
-;; player-connection: TCP listener Color -> Connection
-; accepts the connection of a player
-; header: (define (player-connection listener color) (make-connection #false #false "White"))
+;; player-connection: TCP listener Color Color -> Connection Connection
+; accepts and handles the connection of the players
+; header: (define (player-connection listener first-color second-color) (make-connection #false #false "White") (make-connection #false #false "Black"))
 
 ;; Template
 
 ; (define (player-connection listener color)
-;  (... listener ... color ...))
+;  (... with-handlers ...
+;       (local ...
+;         (begin ...
+;          ))))
 
-(define (player-connection listener color)
-  (define-values (server-input server-output) (tcp-accept listener)) ; `define-values`: allocates the values of the multiple outputs of a function (`tcp-accept`) to
-                                                                     ; different variables (`server-input`, `server-output`), one for each value. In this case the outputs are the input and output ports
-                                                                     ; `tcp-accept`: accepts client's connection request
-  (connection-management server-input server-output color))
-
+(define (player-connection listener first-color second-color)
+  (with-handlers
+      ((exn:fail:network?
+        (lambda (exception)
+          (displayln "Connection error. Unable to connect the players")
+          (tcp-close listener)
+          (exit))))
+    (local
+((define-values (first-input first-output) (tcp-accept listener))
+ (define first-connection (connection-management first-input first-output first-color))
+ (define-values (second-input second-output) (tcp-accept listener))
+ (define second-connection (connection-management second-input second-output second-color)))
+      (begin
+        (displayln "Both players connected")
+        (values first-connection second-connection)))))
+      
 ;; RECEIVING PLAYER'S MOVES ;;
 
 ;; receive-move: Connection Color -> Any
@@ -182,15 +205,22 @@
 ;; Template
 
 ; (define (interpret-move moving-player moving-color opponent-player opponent-color move)
+;  (... with-handlers ...
 ;  (cond
 ;    [... move ...]
 ;    [... move ...]
 ;    [... move ... moving-color ...]
 ;    [else
 ;      (begin (... move-piece ...)
-;             (... write ... opponent-player ...))]))
+;             (... write ... opponent-player ...))])))
 
 (define (interpret-move moving-player moving-color opponent-player opponent-color move)
+  (with-handlers
+      ((exn:fail:network?
+        (lambda (exception)
+          (displayln (string-append "Connection error while interpreting the move of the " moving-color " player"))
+          (close-connection moving-player opponent-player #false)
+          (exit))))
   (cond
     [(equal? move 'disconnect)
      (displayln (string-append moving-color " got disconnected")) #false] ; if the player making the move gets disconnected, the function signals it and the game ends
@@ -202,7 +232,7 @@
        (move-piece (first move) (second move)) ; moves the piece according to the player's move
        (write move (connection-server-input opponent-player)) ; the move is sent to the opponent
      (flush-output (connection-server-input opponent-player)) ; `flush-output`: guarantees that the data is immediately sent to `opponent-player` in case of a buffer
-     #true)])) ; the game continues
+     #true)]))) ; the game continues
 
 ;; Examples
 
@@ -217,6 +247,7 @@
 ;; Template
 
 ; (define (game-management white-connection black-connection)
+;  (... with-handlers ...
 ;  (cond
 ;   [equal? ... white-move ...]
 ;    [... check-move ...
@@ -234,9 +265,15 @@
 ;             [else
 ;              ... game-management ...])]
 ;    [else
-;    ... game-management ...]))
+;    ... game-management ...])))
 
 (define (game-management white-connection black-connection)
+  (with-handlers
+      ((exn:fail:network?
+        (lambda (exception)
+          (displayln "Connection error. Closing players' connection")
+          (close-connection white-connection black-connection #false)
+          (exit))))
   ; Start of White player moves
   (let ((white-move (receive-move white-connection "White")))
     (cond
@@ -273,7 +310,7 @@
          [else
           (write 'invalid-move (connection-server-input white-connection))
           (flush-output (connection-server-input white-connection))
-          (game-management white-connection black-connection)])))
+          (game-management white-connection black-connection)]))))
 ; End of White player moves
 
 ;; CLOSING THE CONNECTION ;;
@@ -285,6 +322,7 @@
 ;; Template
 
 ; (define (close-connection white-connection black-connection listener)
+;  (... with-handlers ...
 ;  (cond
 ;    [... white-connection ... (... close-input-port ....)])
 ;  (cond
@@ -294,9 +332,13 @@
 ;  (cond
 ;    [... black-connection ... (... close-output-port ...)])
 ;  (cond
-;    [... listener ... (... tcp-close ...)]))
+;    [... listener ... (... tcp-close ...)])))
 
 (define (close-connection white-connection black-connection listener)
+  (with-handlers
+      ((exn:fail:network?
+        (lambda (exception)
+          (displayln "Error while closing the connection. Forcing the closing"))))
   (cond
     [(connection-server-input white-connection)
      (close-input-port (connection-server-input white-connection))]) ; `close-input-port`: built-in function that closes the input port
@@ -311,7 +353,45 @@
      (close-output-port (connection-server-output black-connection))])
   (cond
     [listener
-     (tcp-close listener)])) ; `tcp-close`: shuts down the server associated with `listener`
+     (tcp-close listener)]))) ; `tcp-close`: shuts down the server associated with `listener`
+
+;; HANDLING A GAME SESSION ;;
+
+;; game-session: Connection Connection TCP listener -> void
+; handles a game session made of multiple games
+; header: (define (game-session black-connection white-connection listener) void)
+
+;; Template
+
+; (define (game-session black-connection white-connection listener)
+;  (... with-handlers ...
+;       (... game-management ...)
+;       (cond
+;         [string=? ...
+;          (... game-session ...)]
+;         [string=? ...
+;          (... close-connection ...)]
+;         [else
+;          (... game-session ...)])))
+
+(define (game-session black-connection white-connection listener)
+  (with-handlers
+      ((exn:fail:network?
+        (lambda (exception)
+          (displayln "Connection error")
+          (close-connection white-connection black-connection listener)
+          (exit))))
+    (game-management white-connection black-connection)
+    (displayln "Game ended. Do you want to play again? (yes/no)")
+    (let ((answer (read-line))) ; `read-line`: built-in function that reads what the player writes
+      (cond
+        [(string=? answer "yes")
+         (game-session black-connection white-connection listener)]
+        [(string=? answer "no")
+         (close-connection white-connection black-connection listener)]
+        [else
+         (displayln "Invalid answer. Type 'yes' or 'no'")
+         (game-session black-connection white-connection listener)]))))
 
 ;; ALLOWING MULTIPLE GAMES ;;
 
@@ -322,30 +402,21 @@
 ;; Template
 
 ; (define (multiple-games listener)
-;  (... game-management ...)
-;  (cond
-;    [string=?
-;     (... game-management ...)
-;     (... multiple-games ...)]
-;    [else
-;     (... close-connection ...)
-;     (... multiple-games ...)]))
+;  (... with-handlers ...
+;       (... player-connection ...)
+;       (... game-session ...)))
 
 (define (multiple-games listener)
-  (displayln "Waiting for the players to connect")
-  (let* ((black-connection (player-connection listener "Black"))
-         (white-connection (player-connection listener "White")))
-    (displayln "Both players connected")
-       (game-management white-connection black-connection)
-    (displayln "Game ended. Do you want to play again? (yes/no)")
-    (let ((answer (read-line))) ; `read-line`: built-in function that reads what the player writes
-      (cond
-        [(string=? answer "yes")
-         (game-management white-connection black-connection)
-         (multiple-games listener)]
-    [else (close-connection white-connection black-connection listener)
-    (multiple-games listener)]))))
-
+   (with-handlers
+       ((exn:fail:network?
+         (lambda (exception)
+           (displayln "Connection error. Restarting the server")
+           (tcp-close listener)
+           (exit))))
+     (define-values (black-connection white-connection)
+       (player-connection listener "Black" "White"))
+     (game-session black-connection white-connection listener)))
+  
 ;; STARTING THE SERVER ;;
 
 ;; start-server: -> void
