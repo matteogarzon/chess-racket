@@ -791,10 +791,6 @@
 (define (game-management white-connection black-connection)
   (let ((white-move (receive-move white-connection "White")))
     (cond
-      [(or (equal? white-move 'disconnect) (equal? white-move 'quit))
-       (interpret-move white-connection "White"
-                      black-connection "Black"
-                      white-move)]
       [(and (list? white-move) (= (length white-move) 2)
             (check-move white-move "White"))
        (begin
@@ -802,8 +798,7 @@
          ; Fix: Use connection-server-output instead of connection-server-input
          (write white-move (connection-server-output black-connection))
          (flush-output (connection-server-output black-connection)))
-       (let ((black-move (receive-move black-connection "Black")))
-         ; Similar fix for black moves
+       ; Similar fix for black moves
          (cond
            [(or (equal? black-move 'disconnect) (equal? black-move 'quit))
             (interpret-move black-connection "Black"
