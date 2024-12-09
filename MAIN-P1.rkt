@@ -1422,6 +1422,7 @@
     [(and (equal? NETWORK-STATE 'waiting) (equal? key "j"))
      (begin
        (start-client)
+       (start-game)
         (set! NETWORK-STATE 'connected)
        (exit))]
     [else state]))
