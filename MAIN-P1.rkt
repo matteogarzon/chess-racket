@@ -69,7 +69,7 @@
 (define TRANSPARENT-CHESSBOARD (rectangle (* 8 SQUARE-SIDE) (* 8 SQUARE-SIDE) "solid" "transparent"))
 
 ; Defining the rows of the chessboard
-; When the first square is color 1
+; When the first square is color 110.21.
 (define CHESSBOARD-ROW-1
   (beside (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-1)
           (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-2)
@@ -1372,12 +1372,17 @@
 ; end-game
 ; also disconnects!!!! + resets the chessboard
 (define (end-game)
- (begin
-   (set! GAME-STATE "NO-GAME")
-   (reset-chessboard)))
+  (begin
+    (set! GAME-STATE "NO-GAME")
+    (reset-chessboard)
+    (when (or (equal? NETWORK-STATE "SERVER")
+              (equal? NETWORK-STATE "CLIENT"))
+      (set! NETWORK-STATE 'waiting))))
 
 (define (start-game)
- (set! GAME-STATE "GAME"))
+  (begin
+    (set! GAME-STATE "GAME")
+    (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))
 
 (define (exit-game)
  (set! GAME-STATE "END-CONFIRMATION"))
@@ -1398,42 +1403,41 @@
 
 (define (handle-key state key)
   (cond
-    [(and (string=? GAME-STATE "GAME" ) (string=? key "q")) ; shows exit prompt (doesn't end game!)
+    [(and (string=? GAME-STATE "GAME" ) (string=? key "q")) ; shows exit prompt
      (begin
        (exit-game)
        state)] 
-    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "y")) ; ends game + disconnects? 
+    [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "y")) ; ends game
      (begin
- ;      (cond
- ;        [(string=? NETWORK-STATE "SERVER") ]
- ;        [(string=? NETWORK-STATE "CLIENT")]
        (end-game)
        state)] 
     [(and (string=? GAME-STATE "END-CONFIRMATION") (string=? key "n")) ; resumes game
      (begin
        (start-game)
        state)] 
-    [(and (string=? GAME-STATE "NO-GAME") (equal? key "h")) ; starts game
+    [(and (string=? GAME-STATE "NO-GAME") (equal? key "h")) ; starts server
      (begin
-       (start-server)
+       (thread (lambda () (start-server))) ; Run server in separate thread
        (set! NETWORK-STATE "SERVER")
        (start-game)
-       state)] ;;;; cosa fa exit?
-    [(and (equal? NETWORK-STATE 'waiting) (equal? key "j"))
+       state)]
+    [(and (string=? GAME-STATE "NO-GAME") (equal? key "j")) ; joins game
      (begin
-       (start-client)
+       (thread (lambda () (start-client))) ; Run client in separate thread
+       (set! NETWORK-STATE "CLIENT")
        (start-game)
-        (set! NETWORK-STATE 'connected)
-       (exit))]
+       state)]
     [else state]))
 
 
 (define (render state)
   (cond
-    [(string=? "GAME" GAME-STATE) (render-chessboard state)]
-    [(string=? "END-GAME" GAME-STATE) (render-welcome state)]
-    [(string=? "END-CONFIRMATION" GAME-STATE) (render-exit state)]
-    [else (render-welcome state)]))
+    [(string=? "GAME" GAME-STATE) 
+     (render-chessboard state)]
+    [(string=? "END-CONFIRMATION" GAME-STATE) 
+     (render-exit state)]
+    [else 
+     (render-welcome state)]))
 
 ; Run the program
 (big-bang INITIAL-STATE
