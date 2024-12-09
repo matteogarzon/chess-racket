@@ -1266,7 +1266,10 @@
 ; Handles mouse events for piece selection and movement
 ; headeer: (define (handle-mouse state x y event) ...)
 
+(define current-connection #f)  ; Will store the active connection
+
 ;; Implementation
+;; Add to your handle-mouse function where moves are made
 (define (handle-mouse state x y event)
   (if game-over
       state
@@ -1277,24 +1280,18 @@
                 [col (posn-x clicked-pos)]
                 [clicked-piece (vector-ref (vector-ref state row) col)])
            (cond
-             ; If we have a selected piece and clicked on a valid move position
              [(and selected-piece 
                    (member clicked-pos (get-valid-moves selected-piece selected-pos state)))
               (begin
                 (let ([new-state (handle-move state clicked-pos)])
-                  ; Send move to server
-                  (when (or (equal? NETWORK-STATE "SERVER")
-                           (equal? NETWORK-STATE "CLIENT"))
+                  ; Send move to other player
+                  (when current-connection
                     (write (list (posn-x selected-pos) 
                                (posn-y selected-pos)
                                (posn-x clicked-pos)
                                (posn-y clicked-pos))
-                          (if (equal? NETWORK-STATE "SERVER")
-                              (connection-server-output server-connection)
-                              (connection-server-output client-connection)))
-                    (flush-output (if (equal? NETWORK-STATE "SERVER")
-                                    (connection-server-output server-connection)
-                                    (connection-server-output client-connection))))
+                          (connection-server-output current-connection))
+                    (flush-output (connection-server-output current-connection)))
                   ; Deselect the piece after moving it
                   (vector-set! (vector-ref new-state (posn-y clicked-pos)) 
                              (posn-x clicked-pos)
@@ -1437,15 +1434,21 @@
      (begin
        (start-game)
        state)] 
-    [(and (string=? GAME-STATE "NO-GAME") (equal? key "h")) ; starts server
+  [(and (string=? GAME-STATE "NO-GAME") (equal? key "h"))
      (begin
-       (thread (lambda () (start-server))) ; Run server in separate thread
+       (thread (lambda () 
+                (start-server)
+                ; Set the connection after server starts
+                (set! current-connection (get-server-connection))))
        (set! NETWORK-STATE "SERVER")
        (start-game)
        state)]
-    [(and (string=? GAME-STATE "NO-GAME") (equal? key "j")) ; joins game
+    [(and (string=? GAME-STATE "NO-GAME") (equal? key "j"))
      (begin
-       (thread (lambda () (start-client))) ; Run client in separate thread
+       (thread (lambda () 
+                (start-client)
+                ; Set the connection after client starts
+                (set! current-connection (get-client-connection))))
        (set! NETWORK-STATE "CLIENT")
        (start-game)
        state)]

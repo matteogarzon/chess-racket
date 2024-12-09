@@ -9,8 +9,12 @@
 (provide receive-and-forward-move)
 (provide start-server)
 (provide server-did-both-connect)
-
+(provide get-server-connection)
+(define server-connection #f)
+(define (get-server-connection) server-connection)
 (define server-did-both-connect #f)
+;; Define the connection structure
+(provide (struct-out connection))
 
 ;;;;;;;;;; CODE FOR THE SERVER ;;;;;;;;;;;;;
 
@@ -746,8 +750,7 @@
 (check-expect (interpret-move C1 "White" C2 "Black" 'quit) #false)
 
 ;; receive-and-forward-move: Connection Connection -> Boolean
-;; Receives a move from the source connection and forwards it to the target connection
-;; Returns #t if game should continue, #f if game should end
+;; Receives a move from one player and forwards it to the other
 (define (receive-and-forward-move from-connection to-connection)
   (let ((move-data (read (connection-server-input from-connection))))
     (when (and (list? move-data) (= (length move-data) 4))
@@ -794,23 +797,14 @@
           (close-connection white-connection black-connection #false)
           (exit))))
     (begin
-      ;; Signal game start to both players
-      (write 'game-start (connection-server-output white-connection))
-      (write 'game-start (connection-server-output black-connection))
-      (flush-output (connection-server-output white-connection))
-      (flush-output (connection-server-output black-connection))
-      
-      ;; Initialize game state
       (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
+      (set! server-did-both-connect #t)
       
       ;; Start the game loop
       (let game-loop ()
-        (cond
-          [(receive-and-forward-move white-connection black-connection) 
-           (game-loop)]
-          [(receive-and-forward-move black-connection white-connection)
-           (game-loop)]
-          [else (void)])))))
+        (when (or (receive-and-forward-move white-connection black-connection)
+                 (receive-and-forward-move black-connection white-connection))
+          (game-loop))))))
 
 ; End of White player moves
 

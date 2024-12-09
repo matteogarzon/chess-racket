@@ -4,7 +4,9 @@
 (require racket/tcp)
 (require 2htdp/image)
 (require racket/base)
-
+(provide get-client-connection)
+(define client-connection #f)
+(define (get-client-connection) client-connection)
 (define CHESS-COLOR "White") ;; default
 (define client-did-both-connect #f)
 (provide CHESS-COLOR)
@@ -12,9 +14,28 @@
 (provide start-client)
 (require 2htdp/universe)
 (require "logic.rkt")
+(require "server.rkt") ; To get the connection structure
 
 ;;;;;;;;; CODE FOR THE CLIENT ;;;;;;;;;;;
 
+;; Function to handle receiving moves
+(define (handle-received-move move-data)
+  (when (and (list? move-data) (= (length move-data) 4))
+    (let ((from-pos (make-posn (first move-data) (second move-data)))
+          (to-pos (make-posn (third move-data) (fourth move-data))))
+      ; Invert the coordinates for the opponent's perspective
+      (let ((inverted-from (make-posn (- 7 (posn-x from-pos)) (- 7 (posn-y from-pos))))
+            (inverted-to (make-posn (- 7 (posn-x to-pos)) (- 7 (posn-y to-pos)))))
+        (move-piece inverted-from inverted-to)))))
+
+;; Function to start listening for moves
+(define (start-move-listener in)
+  (thread
+   (lambda ()
+     (let loop ()
+       (let ((move-data (read in)))
+         (handle-received-move move-data)
+         (loop))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;; Data type ;;;;;;;;;;
