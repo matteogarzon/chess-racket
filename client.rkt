@@ -23,10 +23,18 @@
   (when (and (list? move-data) (= (length move-data) 4))
     (let ((from-pos (make-posn (first move-data) (second move-data)))
           (to-pos (make-posn (third move-data) (fourth move-data))))
-      ; Invert the coordinates for the opponent's perspective
-      (let ((inverted-from (make-posn (- 7 (posn-x from-pos)) (- 7 (posn-y from-pos))))
-            (inverted-to (make-posn (- 7 (posn-x to-pos)) (- 7 (posn-y to-pos)))))
-        (move-piece inverted-from inverted-to)))))
+      ; Get the piece at the source position
+      (let ((piece-to-move (vector-ref (vector-ref BOARD-VECTOR (posn-y from-pos)) 
+                                    (posn-x from-pos))))
+        (when (piece? piece-to-move)
+          ; Clear the source position
+          (vector-set! (vector-ref BOARD-VECTOR (posn-y from-pos))
+                      (posn-x from-pos)
+                      0)
+          ; Move piece to destination
+          (vector-set! (vector-ref BOARD-VECTOR (posn-y to-pos))
+                      (posn-x to-pos)
+                      piece-to-move))))))
 
 ;; Function to start listening for moves
 (define (start-move-listener in)
@@ -34,7 +42,8 @@
    (lambda ()
      (let loop ()
        (let ((move-data (read in)))
-         (handle-received-move move-data)
+         (when (not (equal? move-data 'invalid-move))
+           (handle-received-move move-data))
          (loop))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -745,7 +754,7 @@
         [(and in out)
          (begin
            (displayln "Connected to the server")
-           (set! client-connection (make-connection in out))
+           (set! client-connection (make-connection in out CHESS-COLOR))
            (set! client-did-both-connect #t)
            ; Read the color assignment from server
            (let ((color (read in)))
