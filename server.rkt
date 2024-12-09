@@ -6,6 +6,7 @@
 (require racket/base)
 (require "logic.rkt")
 (require racket/udp)
+(provide receive-and-forward-move)
 (provide start-server)
 (provide server-did-both-connect)
 
@@ -747,25 +748,13 @@
 ;; receive-and-forward-move: Connection Connection -> Boolean
 ;; Receives a move from the source connection and forwards it to the target connection
 ;; Returns #t if game should continue, #f if game should end
-(define (receive-and-forward-move source-connection target-connection)
-  (with-handlers
-      ((exn:fail:network?
-        (lambda (exception)
-          (displayln (string-append "Connection error with " (connection-color source-connection) " player"))
-          (close-connection source-connection target-connection #false)
-          #f)))
-    
-    (let ((move (receive-move source-connection (connection-color source-connection))))
-      (cond
-        [(equal? move 'disconnect) #f]
-        [(equal? move 'quit) #f]
-        [(equal? move 'invalid-move) #t]
-        [else
-         (begin
-           ;; Forward the move to the other player
-           (write move (connection-server-output target-connection))
-           (flush-output (connection-server-output target-connection))
-           #t)]))))
+(define (receive-and-forward-move from-connection to-connection)
+  (let ((move-data (read (connection-server-input from-connection))))
+    (when (and (list? move-data) (= (length move-data) 4))
+      ; Forward the move to the other player
+      (write move-data (connection-server-output to-connection))
+      (flush-output (connection-server-output to-connection))
+      #t)))
 
 ;; MANAGING A SINGLE GAME ;;
 
@@ -795,15 +784,6 @@
 ;              ... game-management ...])]
 ;    [else
 ;    ... game-management ...])))
-
-;; Add this function to handle move forwarding
-(define (receive-and-forward-move from-connection to-connection)
-  (let ((move-data (read (connection-server-input from-connection))))
-    (when (and (list? move-data) (= (length move-data) 4))
-      ; Forward the move to the other player
-      (write move-data (connection-server-output to-connection))
-      (flush-output (connection-server-output to-connection))
-      #t)))
 
 ;; Modify game-management to use the new function
 (define (game-management white-connection black-connection)
