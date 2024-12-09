@@ -27,13 +27,7 @@
 (define (connect-ip)
   (displayln "Enter the server IP address")
   (let ((ip-address (read-line)))
-       (with-handlers
-           ((exn:fail:network?
-             (lambda (exception)
-               (displayln "Unable to connect to the server") ; there's a connection error
-               (exit)))) ; and it exits the program
-         (tcp-connect ip-address 1234) ; or it tries to connect
-         ip-address)))
+    ip-address))
 
 ;; CONNECTING TO THE SERVER ;;
 

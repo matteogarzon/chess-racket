@@ -381,6 +381,9 @@
           (displayln "Connection error")
           (close-connection white-connection black-connection listener)
           (exit))))
+    (local ; reset-board: ->void
+      ((define (reset-board)
+         (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)))
     (game-management white-connection black-connection)
     (displayln "Game ended. Do you want to play again? (yes/no)")
     (let ((answer (read-line))) ; `read-line`: built-in function that reads what the player writes
