@@ -16,7 +16,6 @@
 (provide handle-mouse)
 (provide render)
 (require "logic.rkt")
-(require "welcome.rkt")
 (require "server.rkt")
 (require "client.rkt")
 

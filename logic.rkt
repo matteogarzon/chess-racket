@@ -26,7 +26,6 @@
 (require 2htdp/universe)
 (provide piece-color)
 (provide piece)
-(provide INITIAL-STATE)
 (provide (struct-out piece))
 
 ; Types of Moves

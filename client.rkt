@@ -89,23 +89,23 @@
 ;                [else ...]
 ;         [else ...])])))
 
-(define (receive-move-from-server server-output)
+(define (receive-move-from-server server-input) ; Changed parameter name from server-output to server-input
   (with-handlers
       ((exn:fail:network?
         (lambda (exception)
-          (displayln "Disconnected from the server") ; signals the network error
+          (displayln "Disconnected from the server")
           (exit))))
-  (let ((input-data (read server-output))) ; reads data from the server output port
+  (let ((input-data (read server-input))) ; Changed to read from server-input instead of server-output
     (cond
-      [(and (list? input-data) (= (length input-data) 4)) ; if the data is a list of 4 elements,
+      [(and (list? input-data) (= (length input-data) 4))
        (let                                         
-        ((before-move (make-posn (first input-data) (second input-data))) ; it gets the initial position
-        (after-move (make-posn (third input-data) (fourth input-data)))) ; and the final position
-         (cond
-           [(and (in-bounds? before-move) (in-bounds? after-move)) ; if the move is valid,
-                 (list before-move after-move)] ; it returns it
-           [else 'invalid-move]))] ; otherwise, it's signaled as an invalid move
-      [else 'invalid-move])))) ; the data isn't valid
+        ((before-move (make-posn (first input-data) (second input-data)))
+        (after-move (make-posn (third input-data) (fourth input-data))))
+          (cond
+            [(and (in-bounds? before-move) (in-bounds? after-move))
+                  (list before-move after-move)]
+            [else 'invalid-move]))]
+      [else 'invalid-move]))))
 
 ;; DISCONNECTING THE CLIENT FROM THE SERVER ;;
 
@@ -156,30 +156,27 @@
 ;    [else
 ;     (... handle-game-session ...)])))
 
-(define (handle-game-session server-output server-input)
+(define (handle-game-session in out)
   (with-handlers
       ((exn:fail:network?
         (lambda (exception)
           (displayln "Connection error")
-          (disconnect-client server-output server-input)
+          (disconnect-client in out)
           (exit))))
-    (let ((color (read server-output)))
-      (displayln (string-append "Playing as " color))
-      (set! CHESS-COLOR color)
     (displayln "Game ended. Do you want to play again? (yes/no)?")
     (let ((answer (read-line)))
       (cond
         [(string=? answer "yes")
-         (write 'continue server-input)
-         (flush-output server-input)
-         (handle-game-session server-output server-input)]
+         (write 'continue out)
+         (flush-output out)
+         (handle-game-session in out)]
         [(string=? answer "no")
-         (write 'quit server-input)
-         (flush-output server-input)
-         (disconnect-client server-output server-input)]
+         (write 'quit out)
+         (flush-output out)
+         (disconnect-client in out)]
         [else
          (displayln "Invalid answer. Type 'yes' or 'no")
-         (handle-game-session server-output server-input)])))))
+         (handle-game-session in out)]))))
 
 ;; STARTING THE CLIENT
 
@@ -198,21 +195,23 @@
 ;     (... handle-game-session ...)]
 ;    [else ...])))
 
-    
 (define (start-client)
   (with-handlers
       ((exn:fail:network?
         (lambda (exception)
           (displayln "Unable to start the client")
           (exit))))
-  (let
-      ((ip-address (connect-ip)))
-    (define-values (server-input server-output)
-      (tcp-connect ip-address 1234))
-    (cond
-      [(and server-input server-output)
-       (displayln "Connected to the server")
-       (handle-game-session server-output server-input)]
-      [else
-       (displayln "Unable to connect to the server")
-       (exit)]))))
+    (let ((ip-address (connect-ip)))
+      (define-values (in out)
+        (tcp-connect ip-address 1234))
+      (cond
+        [(and in out)
+         (displayln "Connected to the server")
+         ; Read the color assignment from server
+         (let ((color (read in)))
+           (displayln (string-append "Playing as " color))
+           (set! CHESS-COLOR color)
+           (handle-game-session in out))]
+        [else
+         (displayln "Unable to connect to the server")
+         (exit)]))))

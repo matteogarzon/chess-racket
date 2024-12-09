@@ -2,12 +2,511 @@
 ;; about the language level of this file in a form that our tools can easily process.
 #reader(lib "htdp-advanced-reader.ss" "lang")((modname server) (read-case-sensitive #t) (teachpacks ()) (htdp-settings #(#t constructor repeating-decimal #t #t none #f () #f)))
 (require racket/tcp)
+(require 2htdp/image)
 (require racket/base)
 (require "logic.rkt")
 (require racket/udp)
 (provide start-server)
 
 ;;;;;;;;;; CODE FOR THE SERVER ;;;;;;;;;;;;;
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;; Data type ;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; a Piece is a structure:
+; where:
+;   type           :    String         ; The type of piece (e.g., "pawn", "king")
+;   movements      :    List<Posn>     ; List of possible movement directions
+;   repeatable?    :    Boolean        ; Whether the piece can repeat its movement
+;   player         :    Number         ; 1 for black, 2 for white
+;   color          :    String         ; "black" or "white"
+;   selected?      :    Boolean        ; Whether piece is currently selected
+;   img            :    Image          ; Visual representation
+;   width          :    Number         ; Width of piece image
+;   height         :    Number         ; Height of piece image
+;   present?       :    Boolean        ; Whether piece is still in play
+; interpretation: a piece of the chessboard with his own type, movement-state,
+; repeatable-state, player, color, selected-state, image, width, height, and present-state
+(define-struct piece [type movement repeatable? player color selected? img width height present?] #:transparent)
+
+; a Color is one of the following:
+; - "White"
+; - "Black"
+; interpretation: the possible colors of the pieces
+
+; a GameState is a Vector<Vector>
+; interpretation: each inner vector represents a row on the board and each element is either a Piece or 0 (empty square)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;; Constants ;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Defining the squares colors
+(define SQUARE-COLOR-1 "light blue")   ; Color 1
+(define SQUARE-COLOR-2 "white") ; Color 2
+
+; Defining the side of the squares
+(define SQUARE-SIDE 64)
+
+; Defining the division ratio (i.e. how big the pieces are in relation to the squares on the board)
+(define DIV-RATIO (/ SQUARE-SIDE 130))
+
+; Creating the chessboard squares
+(define CHESSBOARD-SQUARE-1 (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-1)) ; Square 1
+(define CHESSBOARD-SQUARE-2 (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-2)) ; Square 2
+
+; Creating a transparent square in which the pieces are placed
+(define TRANSPARENT-CHESSBOARD (rectangle (* 8 SQUARE-SIDE) (* 8 SQUARE-SIDE) "solid" "transparent"))
+
+; Defining the rows of the chessboard
+; When the first square is color 1
+(define CHESSBOARD-ROW-1
+  (beside (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-1)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-2)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-1)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-2)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-1)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-2)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-1)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-2)))
+
+; When the first square is color 2
+(define CHESSBOARD-ROW-2
+  (beside (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-2)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-1)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-2)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-1)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-2)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-1)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-2)
+          (rectangle SQUARE-SIDE SQUARE-SIDE "solid" SQUARE-COLOR-1)))
+
+; Creating the chessboard
+(define CHESSBOARD
+  (above CHESSBOARD-ROW-2
+         CHESSBOARD-ROW-1
+         CHESSBOARD-ROW-2
+         CHESSBOARD-ROW-1
+         CHESSBOARD-ROW-2
+         CHESSBOARD-ROW-1
+         CHESSBOARD-ROW-2
+         CHESSBOARD-ROW-1))
+
+; Defining a scene with the empty chessboard
+(define EMPTY-CHESSBOARD (overlay CHESSBOARD (empty-scene (* SQUARE-SIDE 8) (* SQUARE-SIDE 8))))
+
+; Setting the images of the pieces
+; Pawns
+(define B-PAWN-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-pawn.png"))) ; Black pawn
+(define W-PAWN-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-pawn.png"))) ; White pawn
+
+; Bishops
+(define B-BISHOP-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-bishop.png"))) ; Black bishop
+(define W-BISHOP-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-bishop.png"))) ; White bishop
+
+; Kings
+(define B-KING-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-king.png"))) ; Black king
+(define W-KING-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-king.png"))) ; White king
+
+; Queens
+(define B-QUEEN-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-queen.png"))) ; Black queen
+(define W-QUEEN-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-queen.png"))) ; White queen
+
+; Rooks
+(define B-ROOK-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-rook.png"))) ; Black rook
+(define W-ROOK-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-rook.png"))) ; White rook
+
+; Knights
+(define B-KNIGHT-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/Black Pieces/b-knight.png"))) ; Black knight 
+(define W-KNIGHT-IMAGE (scale/xy DIV-RATIO DIV-RATIO (bitmap "Images/White Pieces/w-knight.png"))) ; White knight
+
+; Defining the images dimensions
+(define pawn-width (image-width B-PAWN-IMAGE))   ; Pawn width
+(define pawn-height (image-height B-PAWN-IMAGE)) ; Pawn height
+
+(define bishop-width (image-width B-BISHOP-IMAGE))   ; Bishop width
+(define bishop-height (image-height B-BISHOP-IMAGE)) ; Bishop height
+
+(define king-width (image-width B-KING-IMAGE))   ; King width
+(define king-height (image-height B-KING-IMAGE)) ; King height
+
+(define queen-width (image-width B-QUEEN-IMAGE))   ; Queen width
+(define queen-height (image-height B-QUEEN-IMAGE)) ; Queen height
+
+(define rook-width (image-width B-ROOK-IMAGE))   ; Rook width
+(define rook-height (image-height B-ROOK-IMAGE)) ; Rook height
+
+(define knight-width (image-width B-KNIGHT-IMAGE))   ; Knight width
+(define knight-height (image-height B-KNIGHT-IMAGE)) ; Knight height
+
+; Defining the chessboard pieces
+; White pawns
+(define W-PAWN1 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN2 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN3 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN4 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN5 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN6 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN7 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define W-PAWN8 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+
+; White king
+(define W-KING (make-piece "king" 
+                           KING-QUEEN-MOVES
+                           #f ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-KING-IMAGE 
+                           king-width 
+                           king-height 
+                           #t)) ; present?
+
+; White queen
+(define W-QUEEN (make-piece "queen" 
+                           KING-QUEEN-MOVES
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-QUEEN-IMAGE 
+                           queen-width 
+                           queen-height 
+                           #t)) ; present?
+
+; White bishops
+(define W-BISHOP1 (make-piece "bishop" 
+                           DIAGONAL-MOVES
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-BISHOP-IMAGE 
+                           bishop-width 
+                           bishop-height 
+                           #t)) ; present?
+(define W-BISHOP2 (make-piece "bishop" 
+                           DIAGONAL-MOVES
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-BISHOP-IMAGE 
+                           bishop-width 
+                           bishop-height 
+                           #t)) ; present?
+
+; White rooks
+(define W-ROOK1 (make-piece "rook" 
+                           ROOK-MOVES
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-ROOK-IMAGE 
+                           rook-width 
+                           rook-height 
+                           #t)) ; present?
+(define W-ROOK2 (make-piece "rook" 
+                           ROOK-MOVES
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-ROOK-IMAGE 
+                           rook-width 
+                           rook-height 
+                           #t)) ; present?
+
+; White knights
+(define W-KNIGHT1 (make-piece "knight" 
+                           KNIGHT-MOVES
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-KNIGHT-IMAGE 
+                           knight-width 
+                           knight-height 
+                           #t)) ; present?
+(define W-KNIGHT2 (make-piece "knight" 
+                           KNIGHT-MOVES
+                           #t ; repeatable?
+                           2  ; player (2 for white)
+                           "white" 
+                           #f ; selected?
+                           W-KNIGHT-IMAGE 
+                           knight-width 
+                           knight-height 
+                           #t)) ; present?
+
+; Black pawns
+(define B-PAWN1 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN2 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN3 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN4 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN5 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN6 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN7 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+(define B-PAWN8 (make-piece "pawn" 
+                           VERTICAL-MOVES
+                           #f ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-PAWN-IMAGE 
+                           pawn-width 
+                           pawn-height 
+                           #t)) ; present?
+
+; Black king
+(define B-KING (make-piece "king" 
+                           KING-QUEEN-MOVES
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-KING-IMAGE 
+                           king-width 
+                           king-height 
+                           #t)) ; present?
+
+; Black queen
+(define B-QUEEN (make-piece "queen" 
+                           KING-QUEEN-MOVES
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-QUEEN-IMAGE 
+                           queen-width 
+                           queen-height 
+                           #t)) ; present?
+
+; Black bishops
+(define B-BISHOP1 (make-piece "bishop" 
+                           DIAGONAL-MOVES
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-BISHOP-IMAGE 
+                           bishop-width 
+                           bishop-height 
+                           #t)) ; present?
+(define B-BISHOP2 (make-piece "bishop" 
+                           DIAGONAL-MOVES
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-BISHOP-IMAGE 
+                           bishop-width 
+                           bishop-height 
+                           #t)) ; present?
+
+; Black rooks
+(define B-ROOK1 (make-piece "rook" 
+                           ROOK-MOVES
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-ROOK-IMAGE 
+                           rook-width 
+                           rook-height 
+                           #t)) ; present?
+(define B-ROOK2 (make-piece "rook" 
+                           ROOK-MOVES
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-ROOK-IMAGE 
+                           rook-width 
+                           rook-height 
+                           #t)) ; present?
+
+; Black knights
+(define B-KNIGHT1 (make-piece "knight" 
+                           KNIGHT-MOVES
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-KNIGHT-IMAGE 
+                           knight-width 
+                           knight-height 
+                           #t)) ; present?
+(define B-KNIGHT2 (make-piece "knight" 
+                           KNIGHT-MOVES
+                           #t ; repeatable?
+                           1  ; player (1 for black)
+                           "black" 
+                           #f ; selected?
+                           B-KNIGHT-IMAGE 
+                           knight-width 
+                           knight-height 
+                           #t)) ; present?
+
+; Defining INITIAL-STATE
+(define INITIAL-STATE 
+  (vector
+    ; Row 0 - Black Special Pieces row
+    (vector B-ROOK1 B-KNIGHT1 B-BISHOP1 B-QUEEN B-KING B-BISHOP2 B-KNIGHT2 B-ROOK2)
+    
+    ; Row 1 - Black pawns
+    (vector B-PAWN1 B-PAWN2 B-PAWN3 B-PAWN4 B-PAWN5 B-PAWN6 B-PAWN7 B-PAWN8)
+    
+    ; Rows 2-5 - Empty spaces
+    (vector 0 0 0 0 0 0 0 0)
+    (vector 0 0 0 0 0 0 0 0)
+    (vector 0 0 0 0 0 0 0 0)
+    (vector 0 0 0 0 0 0 0 0)
+    
+    ; Row 6 - White pawns
+    (vector W-PAWN1 W-PAWN2 W-PAWN3 W-PAWN4 W-PAWN5 W-PAWN6 W-PAWN7 W-PAWN8)
+    
+    ; Row 7 - White Special Pieces row
+    (vector W-ROOK1 W-KNIGHT1 W-BISHOP1 W-QUEEN W-KING W-BISHOP2 W-KNIGHT2 W-ROOK2)))
+
 
 ;; DATA TYPE DEFINITIONS ;;
 
@@ -68,10 +567,10 @@
         (udp-connect! socket "8.8.8.8" 53) ; `udp-connect!`: connects the socket to the ip address and the port
                                            ; 8.8.8.8 and 53: IP address and port used by DNS, specifically 8.8.8.8 referers to Google's DNS
                                            ; and it allows us to obtain the IP address of the computer
-        (let-values (((local-ip local-port remote-ip remote-port) (udp-addresses socket #true))) ; `udp-addresses`: with #true, it returns the address and the port of the local machine
-                                                                                                 ; and the address and the port of the remote machine,
-                                                                                                 ; if the port is closed, it raises `exn:fail:network`
-          (udp-close socket) ; `udp-close`: closes the socket
+        (let ([local-ip (let-values ([(local-ip local-port remote-ip remote-port) 
+                                     (udp-addresses socket #true)])
+                          local-ip)])
+          (udp-close socket)
           local-ip)))))
 
 ;; CONNECTION MANAGEMENT ;;
@@ -88,6 +587,7 @@
 ; (... color ... server-output ...)
 ; (... server-input ... server-output ... color ...))
 
+;; connection-management: Port Port Color -> Connection
 (define (connection-management server-input server-output color)
   (with-handlers
       ((exn:fail:network?
@@ -97,14 +597,14 @@
           (close-output-port server-output)
           (exit))))
     (begin
-    (displayln (string-append color " is connected")) ; `displayln`: "White is connected" or "Black is connected"
-  (write color server-output) ; sends player's color to the client
-  (flush-output server-output)
-    (make-connection server-input server-output color))))
+      (displayln (string-append color " is connected")) ; Make sure this line executes
+      (write color server-output) ; Send player's color to the client
+      (flush-output server-output) ; Ensure the data is sent immediately
+      (make-connection server-input server-output color))))
 
 ;; PLAYER'S CONNECTION ;;
 
-;; player-connection: TCP listener Color Color -> Connection Connection
+; player-connection: TCP-Listener String String -> (values Connection Connection)
 ; accepts and handles the connection of the players
 ; header: (define (player-connection listener first-color second-color) (make-connection #false #false "White") (make-connection #false #false "Black"))
 
@@ -123,11 +623,12 @@
           (displayln "Connection error. Unable to connect the players")
           (tcp-close listener)
           (exit))))
-    (local
-((define-values (first-input first-output) (tcp-accept listener))
- (define first-connection (connection-management first-input first-output first-color))
- (define-values (second-input second-output) (tcp-accept listener))
- (define second-connection (connection-management second-input second-output second-color)))
+    (let* ([first-connection (let-values ([(in out) (tcp-accept listener)])
+                              (displayln (string-append "Accepting " first-color " player..."))
+                              (connection-management in out first-color))]
+           [second-connection (let-values ([(in out) (tcp-accept listener)])
+                              (displayln (string-append "Accepting " second-color " player..."))
+                              (connection-management in out second-color))])
       (begin
         (displayln "Both players connected")
         (values first-connection second-connection)))))
