@@ -670,7 +670,7 @@
 
 (define GAME-STATE "NO-GAME") ; can be either NO-GAME or GAME
 
-(define (handle-game-session server-output server-input)
+(define (handle-game-session server-input server-output)
   (with-handlers
       ((exn:fail:network?
         (lambda (exception)
@@ -684,9 +684,15 @@
         (when (equal? start-signal 'game-start)
           (begin
             (displayln "Game is starting...")
-            ;; Initialize the game state
             (vector-copy! BOARD-VECTOR 0 INITIAL-STATE)
-            (set! GAME-STATE "GAME")))))))
+            (set! GAME-STATE "GAME")
+            ;; Start listening for moves in a separate thread
+            (thread
+             (lambda ()
+               (let loop ()
+                 (let ((move (receive-move-from-server server-input)))
+                   (when (not (equal? move 'invalid-move))
+                     (loop))))))))))))
 
 ;; STARTING THE CLIENT
 

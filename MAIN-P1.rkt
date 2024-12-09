@@ -1269,7 +1269,7 @@
 ;; Implementation
 (define (handle-mouse state x y event)
   (if game-over
-      state  ; If game is over, don't allow any more moves
+      state
       (cond
         [(equal? event "button-down")
          (let* ([clicked-pos (which-square? x y)]
@@ -1282,8 +1282,22 @@
                    (member clicked-pos (get-valid-moves selected-piece selected-pos state)))
               (begin
                 (let ([new-state (handle-move state clicked-pos)])
+                  ; Send move to server
+                  (when (or (equal? NETWORK-STATE "SERVER")
+                           (equal? NETWORK-STATE "CLIENT"))
+                    (write (list (posn-x selected-pos) 
+                               (posn-y selected-pos)
+                               (posn-x clicked-pos)
+                               (posn-y clicked-pos))
+                          (if (equal? NETWORK-STATE "SERVER")
+                              (connection-server-output server-connection)
+                              (connection-server-output client-connection)))
+                    (flush-output (if (equal? NETWORK-STATE "SERVER")
+                                    (connection-server-output server-connection)
+                                    (connection-server-output client-connection))))
                   ; Deselect the piece after moving it
-                  (vector-set! (vector-ref new-state (posn-y clicked-pos)) (posn-x clicked-pos)
+                  (vector-set! (vector-ref new-state (posn-y clicked-pos)) 
+                             (posn-x clicked-pos)
                              (struct-copy piece (vector-ref (vector-ref new-state (posn-y clicked-pos)) 
                                                           (posn-x clicked-pos))
                                         [selected? #f]))

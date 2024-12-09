@@ -796,7 +796,16 @@
 ;    [else
 ;    ... game-management ...])))
 
-;; Update game-management to only handle network communication
+;; Add this function to handle move forwarding
+(define (receive-and-forward-move from-connection to-connection)
+  (let ((move-data (read (connection-server-input from-connection))))
+    (when (and (list? move-data) (= (length move-data) 4))
+      ; Forward the move to the other player
+      (write move-data (connection-server-output to-connection))
+      (flush-output (connection-server-output to-connection))
+      #t)))
+
+;; Modify game-management to use the new function
 (define (game-management white-connection black-connection)
   (with-handlers
       ((exn:fail:network?
